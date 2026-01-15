@@ -1,129 +1,80 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
-void main() {
-  runApp(const PomodoroApp());
+import 'theme/theme_provider.dart';
+import 'widgets/navigation_pill.dart';
+import 'pages/home_page.dart';
+import 'pages/stats_page.dart';
+import 'pages/settings_page.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize theme provider
+  final themeProvider = ThemeProvider();
+  await themeProvider.initialize();
+
+  runApp(
+    ChangeNotifierProvider.value(
+      value: themeProvider,
+      child: const AnchorApp(),
+    ),
+  );
 }
 
-class PomodoroApp extends StatelessWidget {
-  const PomodoroApp({super.key});
+
+class AnchorApp extends StatelessWidget {
+  const AnchorApp({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = context.watch<ThemeProvider>();
+
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Pomodoro',
-      theme: ThemeData(
-        useMaterial3: true,
-        colorSchemeSeed: Colors.red,
-      ),
-      home: const PomodoroPage(),
+      title: 'Anchor',
+      theme: themeProvider.themeData,
+      home: const AppShell(),
     );
   }
 }
 
-class PomodoroPage extends StatefulWidget {
-  const PomodoroPage({super.key});
+/// Main app shell with navigation pill overlay
+class AppShell extends StatefulWidget {
+  const AppShell({super.key});
 
   @override
-  State<PomodoroPage> createState() => _PomodoroPageState();
+  State<AppShell> createState() => _AppShellState();
 }
 
-class _PomodoroPageState extends State<PomodoroPage> {
-  static const int _workDuration = 25 * 60; // 25 minutes
-  int _remainingSeconds = _workDuration;
+class _AppShellState extends State<AppShell> {
+  int _currentIndex = 0;
 
-  Timer? _timer;
-  bool _isRunning = false;
+  final List<Widget> _pages = const [HomePage(), StatsPage(), SettingsPage()];
 
-  void _startTimer() {
-    if (_isRunning) return;
-
+  void _onNavTap(int index) {
     setState(() {
-      _isRunning = true;
+      _currentIndex = index;
     });
-
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (_remainingSeconds <= 0) {
-        timer.cancel();
-        setState(() {
-          _isRunning = false;
-        });
-      } else {
-        setState(() {
-          _remainingSeconds--;
-        });
-      }
-    });
-  }
-
-  void _pauseTimer() {
-    _timer?.cancel();
-    setState(() {
-      _isRunning = false;
-    });
-  }
-
-  void _resetTimer() {
-    _timer?.cancel();
-    setState(() {
-      _remainingSeconds = _workDuration;
-      _isRunning = false;
-    });
-  }
-
-  String get _formattedTime {
-    final minutes = (_remainingSeconds ~/ 60).toString().padLeft(2, '0');
-    final seconds = (_remainingSeconds % 60).toString().padLeft(2, '0');
-    return '$minutes:$seconds';
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.watch<ThemeProvider>().colors;
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Pomodoro'),
-        centerTitle: true,
-      ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              _formattedTime,
-              style: const TextStyle(
-                fontSize: 72,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 40),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                ElevatedButton(
-                  onPressed: _isRunning ? null : _startTimer,
-                  child: const Text('Start'),
-                ),
-                const SizedBox(width: 16),
-                ElevatedButton(
-                  onPressed: _isRunning ? _pauseTimer : null,
-                  child: const Text('Pause'),
-                ),
-                const SizedBox(width: 16),
-                ElevatedButton(
-                  onPressed: _resetTimer,
-                  child: const Text('Reset'),
-                ),
-              ],
-            ),
-          ],
-        ),
+      body: Stack(
+        children: [
+          // Page content
+          IndexedStack(index: _currentIndex, children: _pages),
+
+          // Floating navigation pill
+          NavigationPill(
+            currentIndex: _currentIndex,
+            onTap: _onNavTap,
+            primaryColor: colors.primary,
+          ),
+        ],
       ),
     );
   }
