@@ -12,6 +12,7 @@ class StatsPage extends StatelessWidget {
     final colors = context.watch<ThemeProvider>().colors;
 
     return Scaffold(
+      backgroundColor: colors.background,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
@@ -22,6 +23,7 @@ class StatsPage extends StatelessWidget {
                 'Status',
                 style: theme.textTheme.headlineMedium?.copyWith(
                   fontWeight: FontWeight.w600,
+                  color: colors.textPrimary,
                 ),
               ),
 
@@ -31,7 +33,7 @@ class StatsPage extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: colors.surface,
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Column(
@@ -40,7 +42,7 @@ class StatsPage extends StatelessWidget {
                     Text(
                       'Today',
                       style: theme.textTheme.titleSmall?.copyWith(
-                        color: Colors.grey[600],
+                        color: colors.textSecondary,
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -51,6 +53,7 @@ class StatsPage extends StatelessWidget {
                             label: 'Focus',
                             value: '3h 16m',
                             color: colors.primary,
+                            colors: colors,
                           ),
                         ),
                         const SizedBox(width: 16),
@@ -58,7 +61,8 @@ class StatsPage extends StatelessWidget {
                           child: _StatCard(
                             label: 'Break',
                             value: '0h 28m',
-                            color: Colors.grey[400]!,
+                            color: colors.textSecondary,
+                            colors: colors,
                           ),
                         ),
                       ],
@@ -74,7 +78,7 @@ class StatsPage extends StatelessWidget {
                 height: 200,
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: colors.surface,
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Column(
@@ -84,6 +88,7 @@ class StatsPage extends StatelessWidget {
                       'Your Focus Progress',
                       style: theme.textTheme.titleSmall?.copyWith(
                         fontWeight: FontWeight.w600,
+                        color: colors.textPrimary,
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -133,11 +138,13 @@ class _StatCard extends StatelessWidget {
   final String label;
   final String value;
   final Color color;
+  final dynamic colors;
 
   const _StatCard({
     required this.label,
     required this.value,
     required this.color,
+    required this.colors,
   });
 
   @override
@@ -155,7 +162,9 @@ class _StatCard extends StatelessWidget {
         children: [
           Text(
             label,
-            style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colors.textSecondary,
+            ),
           ),
           const SizedBox(height: 4),
           Text(

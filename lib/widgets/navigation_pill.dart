@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
+import '../theme/theme_provider.dart';
 
 /// Floating bottom navigation pill with 3 icons
 class NavigationPill extends StatelessWidget {
@@ -122,6 +124,8 @@ class _NavItemState extends State<_NavItem>
 
   @override
   Widget build(BuildContext context) {
+    final colors = context.watch<ThemeProvider>().colors;
+
     return GestureDetector(
       onTapDown: _handleTapDown,
       onTapUp: _handleTapUp,
@@ -139,7 +143,7 @@ class _NavItemState extends State<_NavItem>
           ),
           child: Icon(
             widget.icon,
-            color: widget.isActive ? Colors.white : AnchorColors.iconInactive,
+            color: widget.isActive ? Colors.white : colors.iconInactive,
             size: 24,
           ),
         ),

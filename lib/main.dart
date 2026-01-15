@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'theme/theme_provider.dart';
+import 'providers/timer_provider.dart';
 import 'widgets/navigation_pill.dart';
 import 'pages/home_page.dart';
 import 'pages/stats_page.dart';
@@ -10,18 +11,23 @@ import 'pages/settings_page.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize theme provider
+  // Initialize providers
   final themeProvider = ThemeProvider();
   await themeProvider.initialize();
 
+  final timerProvider = TimerProvider();
+  await timerProvider.initialize();
+
   runApp(
-    ChangeNotifierProvider.value(
-      value: themeProvider,
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider.value(value: themeProvider),
+        ChangeNotifierProvider.value(value: timerProvider),
+      ],
       child: const AnchorApp(),
     ),
   );
 }
-
 
 class AnchorApp extends StatelessWidget {
   const AnchorApp({super.key});
