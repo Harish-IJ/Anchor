@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../models/focus_session.dart';
+import 'sessions_provider.dart';
 
 /// Timer phases (simplified - no long break)
 enum TimerPhase { focus, shortBreak }
@@ -25,6 +27,12 @@ class TimerProvider extends ChangeNotifier {
 
   // Optional project
   String? _projectId;
+
+  // Sessions provider reference (set externally)
+  SessionsProvider? _sessionsProvider;
+
+  // Session tracking
+  int _elapsedSecondsThisSession = 0;
 
   // Getters
   int get focusMinutes => _focusMinutes;
@@ -55,6 +63,11 @@ class TimerProvider extends ChangeNotifier {
       case TimerPhase.shortBreak:
         return 'Break';
     }
+  }
+
+  /// Set sessions provider reference
+  void setSessionsProvider(SessionsProvider provider) {
+    _sessionsProvider = provider;
   }
 
   /// Initialize from stored preferences
@@ -99,12 +112,25 @@ class TimerProvider extends ChangeNotifier {
   void start() {
     if (_state == TimerState.running) return;
 
+    // Start new session if starting from idle
+    if (_state == TimerState.idle) {
+      _elapsedSecondsThisSession = 0;
+      _sessionsProvider?.startSession(
+        type: _phase == TimerPhase.focus
+            ? SessionType.focus
+            : SessionType.shortBreak,
+        plannedDurationSeconds: totalSeconds,
+        projectId: _projectId,
+      );
+    }
+
     _state = TimerState.running;
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (_remainingSeconds <= 0) {
         _onTimerComplete();
       } else {
         _remainingSeconds--;
+        _elapsedSecondsThisSession++;
         notifyListeners();
       }
     });
@@ -115,6 +141,12 @@ class TimerProvider extends ChangeNotifier {
   void pause() {
     _timer?.cancel();
     _state = TimerState.paused;
+
+    // Record pause (only for focus sessions)
+    if (_phase == TimerPhase.focus) {
+      _sessionsProvider?.recordPause();
+    }
+
     notifyListeners();
   }
 
@@ -130,8 +162,17 @@ class TimerProvider extends ChangeNotifier {
   /// Reset timer to beginning of current phase
   void reset() {
     _timer?.cancel();
+
+    // If was running/paused, mark as interrupted
+    if (_state != TimerState.idle && _elapsedSecondsThisSession > 0) {
+      _sessionsProvider?.interruptSession(
+        actualSeconds: _elapsedSecondsThisSession,
+      );
+    }
+
     _state = TimerState.idle;
     _remainingSeconds = totalSeconds;
+    _elapsedSecondsThisSession = 0;
     notifyListeners();
   }
 
@@ -139,6 +180,11 @@ class TimerProvider extends ChangeNotifier {
   /// If [autoStart] is true, automatically start the next phase timer
   void skip({bool autoStart = false}) {
     _timer?.cancel();
+
+    // Save current session as skipped if there was one
+    if (_elapsedSecondsThisSession > 0) {
+      _sessionsProvider?.skipSession();
+    }
 
     // Simple flow: Focus -> Break -> Focus
     if (_phase == TimerPhase.focus) {
@@ -148,14 +194,25 @@ class TimerProvider extends ChangeNotifier {
     }
 
     _remainingSeconds = totalSeconds;
+    _elapsedSecondsThisSession = 0;
 
     if (autoStart) {
+      // Start new session for the new phase
+      _sessionsProvider?.startSession(
+        type: _phase == TimerPhase.focus
+            ? SessionType.focus
+            : SessionType.shortBreak,
+        plannedDurationSeconds: totalSeconds,
+        projectId: _projectId,
+      );
+
       _state = TimerState.running;
       _timer = Timer.periodic(const Duration(seconds: 1), (_) {
         if (_remainingSeconds <= 0) {
           _onTimerComplete();
         } else {
           _remainingSeconds--;
+          _elapsedSecondsThisSession++;
           notifyListeners();
         }
       });
@@ -169,6 +226,10 @@ class TimerProvider extends ChangeNotifier {
   /// Called when timer reaches zero
   void _onTimerComplete() {
     _timer?.cancel();
+
+    // Complete the session
+    _sessionsProvider?.completeSession(actualSeconds: totalSeconds);
+
     _state = TimerState.idle;
 
     // Auto-switch to next phase
@@ -179,10 +240,15 @@ class TimerProvider extends ChangeNotifier {
     }
 
     _remainingSeconds = totalSeconds;
+    _elapsedSecondsThisSession = 0;
     notifyListeners();
 
     // TODO: Play sound / vibrate / notification
   }
+
+  /// Check if should suggest shorter timer (based on pause count)
+  bool get shouldSuggestShorterTimer =>
+      _sessionsProvider?.shouldSuggestShorterTimer() ?? false;
 
   @override
   void dispose() {

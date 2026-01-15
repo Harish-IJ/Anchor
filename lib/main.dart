@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 
 import 'theme/theme_provider.dart';
 import 'providers/timer_provider.dart';
 import 'providers/projects_provider.dart';
+import 'providers/sessions_provider.dart';
+import 'models/focus_session.dart';
+import 'models/daily_summary.dart';
 import 'widgets/navigation_pill.dart';
 import 'pages/home_page.dart';
 import 'pages/stats_page.dart';
@@ -11,6 +15,15 @@ import 'pages/settings_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Hive
+  await Hive.initFlutter();
+
+  // Register Hive adapters
+  Hive.registerAdapter(SessionTypeAdapter());
+  Hive.registerAdapter(SessionStatusAdapter());
+  Hive.registerAdapter(FocusSessionAdapter());
+  Hive.registerAdapter(DailySummaryAdapter());
 
   // Initialize providers
   final themeProvider = ThemeProvider();
@@ -22,12 +35,19 @@ void main() async {
   final projectsProvider = ProjectsProvider();
   await projectsProvider.initialize();
 
+  final sessionsProvider = SessionsProvider();
+  await sessionsProvider.init();
+
+  // Connect timer to sessions for tracking
+  timerProvider.setSessionsProvider(sessionsProvider);
+
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider.value(value: themeProvider),
         ChangeNotifierProvider.value(value: timerProvider),
         ChangeNotifierProvider.value(value: projectsProvider),
+        ChangeNotifierProvider.value(value: sessionsProvider),
       ],
       child: const AnchorApp(),
     ),
