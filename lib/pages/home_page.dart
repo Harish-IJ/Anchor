@@ -25,7 +25,7 @@ class _HomePageState extends State<HomePage>
   bool _isSkipping = false;
   bool _wasRunningBeforeSkip = false;
   bool _shouldSkipAfterAnimation = false;
-  NudgeItem _currentNudge = NudgeBox.getRandomNudge();
+  NudgeItem _currentNudge = CollapsibleNudgeBox.getRandomNudge();
 
   @override
   void initState() {
@@ -50,7 +50,7 @@ class _HomePageState extends State<HomePage>
 
   void _randomizeNudge() {
     setState(() {
-      _currentNudge = NudgeBox.getRandomNudge();
+      _currentNudge = CollapsibleNudgeBox.getRandomNudge();
     });
   }
 
@@ -149,58 +149,87 @@ class _HomePageState extends State<HomePage>
     return Scaffold(
       backgroundColor: colors.background,
       resizeToAvoidBottomInset: false,
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return SingleChildScrollView(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      // Top section: Header
-                      const GreetingHeader(userName: 'Riley'),
-
-                      // Center section: Nudge + Timer
-                      Column(
-                        children: [
-                          const SizedBox(height: 16),
-                          // Nudge box
-                          Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 8,
-                            ),
-                            child: NudgeBox(
-                              nudge: _currentNudge,
-                              onMusicTap: () {
-                                // TODO: Future white noise feature
-                              },
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          // Timer card
-                          _buildTimerCard(
-                            theme,
-                            colors,
-                            timer,
-                            projectName,
-                            skipCircleColor,
-                          ),
-                        ],
-                      ),
-
-                      // Bottom spacer for nav pill
-                      const SizedBox(height: 80),
-                    ],
-                  ),
+      body: Stack(
+        children: [
+          // Soft accent gradient background
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: MediaQuery.of(context).size.height * 2,
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.bottomLeft,
+                  end: Alignment.topRight,
+                  colors: [
+                    colors.primary.withValues(alpha: 0.35),
+                    colors.primary.withValues(alpha: 0.05),
+                    colors.background.withValues(alpha: 0),
+                  ],
+                  stops: const [0.0, 0.4, 1.0],
                 ),
               ),
-            );
-          },
-        ),
+            ),
+          ),
+          // Main content
+          SafeArea(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return SingleChildScrollView(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: constraints.maxHeight,
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          // Top section: Header
+                          const GreetingHeader(userName: 'Riley'),
+
+                          // Center section: Nudge + Timer
+                          Column(
+                            children: [
+                              const SizedBox(height: 16),
+                              // Collapsible nudge box - slides to collapse after 10s
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 8,
+                                ),
+                                child: CollapsibleNudgeBox(
+                                  nudge: _currentNudge,
+                                  onMusicTap: () {
+                                    // TODO: Future white noise feature
+                                  },
+                                  onNudgeChange: _randomizeNudge,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              // Timer card
+                              _buildTimerCard(
+                                theme,
+                                colors,
+                                timer,
+                                projectName,
+                                skipCircleColor,
+                              ),
+                            ],
+                          ),
+
+                          // Bottom spacer for nav pill
+                          const SizedBox(height: 80),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -224,10 +253,21 @@ class _HomePageState extends State<HomePage>
                 color: colors.surface,
                 borderRadius: BorderRadius.circular(32),
                 boxShadow: [
+                  // Subtle layered shadows for depth
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 20,
-                    offset: const Offset(0, 4),
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.03),
+                    blurRadius: 24,
+                    offset: const Offset(0, 8),
+                  ),
+                  BoxShadow(
+                    color: colors.primary.withValues(alpha: 0.08),
+                    blurRadius: 40,
+                    offset: const Offset(0, 16),
                   ),
                 ],
               ),

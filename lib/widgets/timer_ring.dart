@@ -53,14 +53,17 @@ class TimerRing extends StatelessWidget {
               ),
             ),
 
-            // Time display (just the time, no label)
-            Text(
-              timeDisplay,
-              style: theme.textTheme.displayMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: colors.textPrimary,
-                letterSpacing: 2,
-                fontSize: 52,
+            // Time display (just the time, no label) - moved up slightly
+            Transform.translate(
+              offset: const Offset(0, -6),
+              child: Text(
+                timeDisplay,
+                style: theme.textTheme.displayMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: colors.textPrimary,
+                  letterSpacing: 2,
+                  fontSize: 52,
+                ),
               ),
             ),
           ],
