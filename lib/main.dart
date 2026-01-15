@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import 'theme/theme_provider.dart';
 import 'providers/timer_provider.dart';
+import 'providers/projects_provider.dart';
 import 'widgets/navigation_pill.dart';
 import 'pages/home_page.dart';
 import 'pages/stats_page.dart';
@@ -18,11 +19,15 @@ void main() async {
   final timerProvider = TimerProvider();
   await timerProvider.initialize();
 
+  final projectsProvider = ProjectsProvider();
+  await projectsProvider.initialize();
+
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider.value(value: themeProvider),
         ChangeNotifierProvider.value(value: timerProvider),
+        ChangeNotifierProvider.value(value: projectsProvider),
       ],
       child: const AnchorApp(),
     ),

@@ -18,14 +18,12 @@ class ProjectPill extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: hasProject ? colors.primaryLight : colors.surfaceVariant,
-          borderRadius: BorderRadius.circular(24),
+          color: colors.surfaceVariant,
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: hasProject
-                ? colors.primary.withOpacity(0.3)
-                : colors.textSecondary.withOpacity(0.2),
+            color: colors.textSecondary.withOpacity(0.15),
             width: 1,
           ),
         ),
@@ -34,14 +32,14 @@ class ProjectPill extends StatelessWidget {
           children: [
             Icon(
               hasProject ? Icons.folder_rounded : Icons.add_rounded,
-              size: 18,
+              size: 14,
               color: hasProject ? colors.primary : colors.textSecondary,
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 6),
             Text(
               hasProject ? projectName! : 'Add Project',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: hasProject ? colors.primary : colors.textSecondary,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: hasProject ? colors.textPrimary : colors.textSecondary,
                 fontWeight: FontWeight.w500,
               ),
             ),

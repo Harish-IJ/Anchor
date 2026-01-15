@@ -1,27 +1,73 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../theme/theme_provider.dart';
+import '../providers/timer_provider.dart';
 
 /// Timer control buttons: Reset, Play/Pause, Skip
 class TimerControls extends StatelessWidget {
   final bool isRunning;
+  final bool isIdle;
   final bool canReset;
   final VoidCallback? onPlayPause;
   final VoidCallback? onReset;
-  final VoidCallback? onSkip;
+  final VoidCallback? onSkipTap;
+  final VoidCallback? onSkipStart;
+  final VoidCallback? onSkipEnd;
+  final double skipProgress;
 
   const TimerControls({
     super.key,
     required this.isRunning,
+    this.isIdle = true,
     this.canReset = true,
     this.onPlayPause,
     this.onReset,
-    this.onSkip,
+    this.onSkipTap,
+    this.onSkipStart,
+    this.onSkipEnd,
+    this.skipProgress = 0,
   });
+
+  void _confirmReset(BuildContext context) {
+    final colors = context.read<ThemeProvider>().colors;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: colors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(
+          'Reset Timer?',
+          style: TextStyle(color: colors.textPrimary),
+        ),
+        content: Text(
+          'This will reset the timer to the beginning.',
+          style: TextStyle(color: colors.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: colors.textSecondary),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              onReset?.call();
+            },
+            child: Text('Reset', style: TextStyle(color: colors.primary)),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final colors = context.watch<ThemeProvider>().colors;
+    final timer = context.watch<TimerProvider>();
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -29,19 +75,19 @@ class TimerControls extends StatelessWidget {
         // Reset button
         _ControlButton(
           icon: Icons.refresh_rounded,
-          onTap: canReset ? onReset : null,
+          onTap: canReset ? () => _confirmReset(context) : null,
           color: colors.textSecondary,
           backgroundColor: colors.surfaceVariant,
         ),
 
         const SizedBox(width: 24),
 
-        // Play/Pause button (primary)
+        // Play/Pause button
         _ControlButton(
           icon: isRunning ? Icons.pause_rounded : Icons.play_arrow_rounded,
           onTap: onPlayPause,
-          color: Colors.white,
-          backgroundColor: colors.primary,
+          color: isRunning ? colors.textSecondary : Colors.white,
+          backgroundColor: isRunning ? colors.surfaceVariant : colors.primary,
           size: 64,
           iconSize: 32,
         ),
@@ -49,11 +95,17 @@ class TimerControls extends StatelessWidget {
         const SizedBox(width: 24),
 
         // Skip button
-        _ControlButton(
-          icon: Icons.skip_next_rounded,
-          onTap: onSkip,
-          color: colors.textSecondary,
+        _SkipButton(
+          isIdle: isIdle,
+          onTap: onSkipTap,
+          onLongPressStart: onSkipStart,
+          onLongPressEnd: onSkipEnd,
+          progress: skipProgress,
+          fillColor: timer.isFocusPhase
+              ? const Color(0xFF059669)
+              : colors.primary,
           backgroundColor: colors.surfaceVariant,
+          iconColor: colors.textSecondary,
         ),
       ],
     );
@@ -136,6 +188,56 @@ class _ControlButtonState extends State<_ControlButton>
               size: widget.iconSize,
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Skip button - tap when idle, long-press when running
+class _SkipButton extends StatelessWidget {
+  final bool isIdle;
+  final VoidCallback? onTap;
+  final VoidCallback? onLongPressStart;
+  final VoidCallback? onLongPressEnd;
+  final double progress;
+  final Color fillColor;
+  final Color backgroundColor;
+  final Color iconColor;
+
+  const _SkipButton({
+    required this.isIdle,
+    this.onTap,
+    this.onLongPressStart,
+    this.onLongPressEnd,
+    this.progress = 0,
+    required this.fillColor,
+    required this.backgroundColor,
+    required this.iconColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isPressed = progress > 0;
+
+    return GestureDetector(
+      // Tap: works when idle (instant skip), or shows toast when running
+      onTap: onTap,
+      // Long press: only for when timer is running/paused
+      onLongPressStart: isIdle ? null : (_) => onLongPressStart?.call(),
+      onLongPressEnd: isIdle ? null : (_) => onLongPressEnd?.call(),
+      onLongPressCancel: isIdle ? null : onLongPressEnd,
+      child: Container(
+        width: 48,
+        height: 48,
+        decoration: BoxDecoration(
+          color: backgroundColor,
+          shape: BoxShape.circle,
+        ),
+        child: Icon(
+          Icons.skip_next_rounded,
+          color: isPressed ? fillColor : iconColor,
+          size: 24,
         ),
       ),
     );

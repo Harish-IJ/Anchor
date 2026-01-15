@@ -2,8 +2,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Timer phases
-enum TimerPhase { focus, shortBreak, longBreak }
+/// Timer phases (simplified - no long break)
+enum TimerPhase { focus, shortBreak }
 
 /// Timer states
 enum TimerState { idle, running, paused }
@@ -12,12 +12,10 @@ enum TimerState { idle, running, paused }
 class TimerProvider extends ChangeNotifier {
   static const String _focusKey = 'timer_focus_minutes';
   static const String _breakKey = 'timer_break_minutes';
-  static const String _longBreakKey = 'timer_long_break_minutes';
 
   // Configuration
   int _focusMinutes = 25;
   int _breakMinutes = 5;
-  int _longBreakMinutes = 15;
 
   // State
   TimerPhase _phase = TimerPhase.focus;
@@ -26,20 +24,20 @@ class TimerProvider extends ChangeNotifier {
   Timer? _timer;
 
   // Optional project
-  String? _projectName;
+  String? _projectId;
 
   // Getters
   int get focusMinutes => _focusMinutes;
   int get breakMinutes => _breakMinutes;
-  int get longBreakMinutes => _longBreakMinutes;
   TimerPhase get phase => _phase;
   TimerState get state => _state;
   int get remainingSeconds => _remainingSeconds;
-  String? get projectName => _projectName;
+  String? get projectId => _projectId;
 
   bool get isRunning => _state == TimerState.running;
   bool get isPaused => _state == TimerState.paused;
   bool get isIdle => _state == TimerState.idle;
+  bool get isFocusPhase => _phase == TimerPhase.focus;
 
   int get totalSeconds {
     switch (_phase) {
@@ -47,8 +45,6 @@ class TimerProvider extends ChangeNotifier {
         return _focusMinutes * 60;
       case TimerPhase.shortBreak:
         return _breakMinutes * 60;
-      case TimerPhase.longBreak:
-        return _longBreakMinutes * 60;
     }
   }
 
@@ -58,8 +54,6 @@ class TimerProvider extends ChangeNotifier {
         return 'Focus';
       case TimerPhase.shortBreak:
         return 'Break';
-      case TimerPhase.longBreak:
-        return 'Long Break';
     }
   }
 
@@ -68,16 +62,14 @@ class TimerProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     _focusMinutes = prefs.getInt(_focusKey) ?? 25;
     _breakMinutes = prefs.getInt(_breakKey) ?? 5;
-    _longBreakMinutes = prefs.getInt(_longBreakKey) ?? 15;
     _remainingSeconds = _focusMinutes * 60;
     notifyListeners();
   }
 
   /// Update timer configuration
-  Future<void> setDurations(int focus, int shortBreak, int longBreak) async {
+  Future<void> setDurations(int focus, int breakMins) async {
     _focusMinutes = focus;
-    _breakMinutes = shortBreak;
-    _longBreakMinutes = longBreak;
+    _breakMinutes = breakMins;
 
     // Reset timer if idle
     if (_state == TimerState.idle) {
@@ -88,13 +80,18 @@ class TimerProvider extends ChangeNotifier {
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_focusKey, focus);
-    await prefs.setInt(_breakKey, shortBreak);
-    await prefs.setInt(_longBreakKey, longBreak);
+    await prefs.setInt(_breakKey, breakMins);
   }
 
   /// Set project for session
-  void setProject(String? name) {
-    _projectName = name;
+  void setProjectId(String? id) {
+    _projectId = id;
+    notifyListeners();
+  }
+
+  /// Clear project
+  void clearProject() {
+    _projectId = null;
     notifyListeners();
   }
 
@@ -139,9 +136,9 @@ class TimerProvider extends ChangeNotifier {
   }
 
   /// Skip to next phase
-  void skip() {
+  /// If [autoStart] is true, automatically start the next phase timer
+  void skip({bool autoStart = false}) {
     _timer?.cancel();
-    _state = TimerState.idle;
 
     // Simple flow: Focus -> Break -> Focus
     if (_phase == TimerPhase.focus) {
@@ -151,6 +148,21 @@ class TimerProvider extends ChangeNotifier {
     }
 
     _remainingSeconds = totalSeconds;
+
+    if (autoStart) {
+      _state = TimerState.running;
+      _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (_remainingSeconds <= 0) {
+          _onTimerComplete();
+        } else {
+          _remainingSeconds--;
+          notifyListeners();
+        }
+      });
+    } else {
+      _state = TimerState.idle;
+    }
+
     notifyListeners();
   }
 

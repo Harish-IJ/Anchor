@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../theme/theme_provider.dart';
@@ -7,13 +8,11 @@ class TimerPreset {
   final String name;
   final int focusMinutes;
   final int breakMinutes;
-  final int longBreakMinutes;
 
   const TimerPreset({
     required this.name,
     required this.focusMinutes,
     required this.breakMinutes,
-    this.longBreakMinutes = 15,
   });
 }
 
@@ -28,14 +27,12 @@ const List<TimerPreset> defaultPresets = [
 class TimerSettingsSheet extends StatefulWidget {
   final int initialFocusMinutes;
   final int initialBreakMinutes;
-  final int initialLongBreakMinutes;
-  final void Function(int focus, int shortBreak, int longBreak) onSave;
+  final void Function(int focus, int breakMins) onSave;
 
   const TimerSettingsSheet({
     super.key,
     this.initialFocusMinutes = 25,
     this.initialBreakMinutes = 5,
-    this.initialLongBreakMinutes = 15,
     required this.onSave,
   });
 
@@ -46,21 +43,18 @@ class TimerSettingsSheet extends StatefulWidget {
 class _TimerSettingsSheetState extends State<TimerSettingsSheet> {
   late int _focusMinutes;
   late int _breakMinutes;
-  late int _longBreakMinutes;
 
   @override
   void initState() {
     super.initState();
     _focusMinutes = widget.initialFocusMinutes;
     _breakMinutes = widget.initialBreakMinutes;
-    _longBreakMinutes = widget.initialLongBreakMinutes;
   }
 
   void _selectPreset(TimerPreset preset) {
     setState(() {
       _focusMinutes = preset.focusMinutes;
       _breakMinutes = preset.breakMinutes;
-      _longBreakMinutes = preset.longBreakMinutes;
     });
   }
 
@@ -103,32 +97,30 @@ class _TimerSettingsSheetState extends State<TimerSettingsSheet> {
           ),
           const SizedBox(height: 24),
 
-          // Duration pickers
+          // Duration pickers (just Focus and Break)
           Row(
             children: [
               Expanded(
                 child: _DurationPicker(
                   label: 'Focus',
                   value: _focusMinutes,
+                  minValue: 5,
+                  maxValue: 90,
+                  step: 5,
                   onChanged: (v) => setState(() => _focusMinutes = v),
                   primaryColor: colors.primary,
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 16),
               Expanded(
                 child: _DurationPicker(
                   label: 'Break',
                   value: _breakMinutes,
+                  minValue: 3,
+                  maxValue: 30,
+                  step: 5,
+                  useBreakValues: true,
                   onChanged: (v) => setState(() => _breakMinutes = v),
-                  primaryColor: colors.primary,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _DurationPicker(
-                  label: 'Long',
-                  value: _longBreakMinutes,
-                  onChanged: (v) => setState(() => _longBreakMinutes = v),
                   primaryColor: colors.primary,
                 ),
               ),
@@ -189,10 +181,10 @@ class _TimerSettingsSheetState extends State<TimerSettingsSheet> {
           ),
           const SizedBox(height: 32),
 
-          // Continue button
+          // Save button
           ElevatedButton(
             onPressed: () {
-              widget.onSave(_focusMinutes, _breakMinutes, _longBreakMinutes);
+              widget.onSave(_focusMinutes, _breakMinutes);
               Navigator.pop(context);
             },
             style: ElevatedButton.styleFrom(
@@ -204,7 +196,7 @@ class _TimerSettingsSheetState extends State<TimerSettingsSheet> {
               ),
             ),
             child: const Text(
-              'Continue',
+              'Save',
               style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
             ),
           ),
@@ -214,19 +206,119 @@ class _TimerSettingsSheetState extends State<TimerSettingsSheet> {
   }
 }
 
-/// Duration picker with increment/decrement buttons
-class _DurationPicker extends StatelessWidget {
+/// Duration picker with increment/decrement buttons and long-press fast mode
+class _DurationPicker extends StatefulWidget {
   final String label;
   final int value;
+  final int minValue;
+  final int maxValue;
+  final int step;
+  final bool useBreakValues;
   final ValueChanged<int> onChanged;
   final Color primaryColor;
 
   const _DurationPicker({
     required this.label,
     required this.value,
+    required this.minValue,
+    required this.maxValue,
+    required this.step,
+    this.useBreakValues = false,
     required this.onChanged,
     required this.primaryColor,
   });
+
+  @override
+  State<_DurationPicker> createState() => _DurationPickerState();
+}
+
+class _DurationPickerState extends State<_DurationPicker> {
+  Timer? _timer;
+  int _incrementCount = 0;
+
+  // Break values: 3, 5, 10, 15, 20, 25, 30
+  static const List<int> _breakValues = [3, 5, 10, 15, 20, 25, 30];
+
+  int _getNextBreakValue(int current, bool increment) {
+    final currentIndex = _breakValues.indexOf(current);
+    if (currentIndex == -1) {
+      // Find closest value
+      for (int i = 0; i < _breakValues.length; i++) {
+        if (_breakValues[i] >= current) {
+          return increment
+              ? _breakValues[i]
+              : _breakValues[(i - 1).clamp(0, _breakValues.length - 1)];
+        }
+      }
+      return increment ? _breakValues.last : _breakValues.first;
+    }
+
+    if (increment) {
+      return currentIndex < _breakValues.length - 1
+          ? _breakValues[currentIndex + 1]
+          : _breakValues.last;
+    } else {
+      return currentIndex > 0
+          ? _breakValues[currentIndex - 1]
+          : _breakValues.first;
+    }
+  }
+
+  void _increment() {
+    _incrementCount++;
+    if (widget.useBreakValues) {
+      widget.onChanged(_getNextBreakValue(widget.value, true));
+    } else {
+      widget.onChanged(
+        (widget.value + widget.step).clamp(widget.minValue, widget.maxValue),
+      );
+    }
+  }
+
+  void _decrement() {
+    _incrementCount++;
+    if (widget.useBreakValues) {
+      widget.onChanged(_getNextBreakValue(widget.value, false));
+    } else {
+      widget.onChanged(
+        (widget.value - widget.step).clamp(widget.minValue, widget.maxValue),
+      );
+    }
+  }
+
+  void _startLongPress(bool increment) {
+    _incrementCount = 0;
+    _timer = Timer.periodic(const Duration(milliseconds: 150), (_) {
+      if (increment) {
+        _increment();
+      } else {
+        _decrement();
+      }
+      // Speed up after 3 increments
+      if (_incrementCount >= 3 && _timer != null) {
+        _timer?.cancel();
+        _timer = Timer.periodic(const Duration(milliseconds: 50), (_) {
+          if (increment) {
+            _increment();
+          } else {
+            _decrement();
+          }
+        });
+      }
+    });
+  }
+
+  void _stopLongPress() {
+    _timer?.cancel();
+    _timer = null;
+    _incrementCount = 0;
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -234,48 +326,70 @@ class _DurationPicker extends StatelessWidget {
     final colors = context.watch<ThemeProvider>().colors;
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
       decoration: BoxDecoration(
         color: colors.surfaceVariant,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Column(
         children: [
-          // Increment
+          // Increment button - larger touch area
           GestureDetector(
-            onTap: () => onChanged((value + 5).clamp(5, 120)),
-            child: Icon(
-              Icons.keyboard_arrow_up_rounded,
-              color: colors.textSecondary,
+            onTap: _increment,
+            onLongPressStart: (_) => _startLongPress(true),
+            onLongPressEnd: (_) => _stopLongPress(),
+            onLongPressCancel: _stopLongPress,
+            behavior: HitTestBehavior.opaque,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Icon(
+                Icons.keyboard_arrow_up_rounded,
+                size: 32,
+                color: colors.textSecondary,
+              ),
             ),
           ),
-          const SizedBox(height: 8),
 
-          // Value
-          Text(
-            '$value',
-            style: theme.textTheme.headlineMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-              color: primaryColor,
+          // Value display
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Text(
+              '${widget.value}',
+              style: theme.textTheme.displaySmall?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: widget.primaryColor,
+                fontSize: 36,
+              ),
             ),
           ),
-          const SizedBox(height: 4),
 
           // Label
           Text(
-            label,
-            style: theme.textTheme.bodySmall?.copyWith(
+            widget.label,
+            style: theme.textTheme.bodyMedium?.copyWith(
               color: colors.textSecondary,
+              fontWeight: FontWeight.w500,
             ),
           ),
-          const SizedBox(height: 8),
 
-          // Decrement
+          const SizedBox(height: 4),
+
+          // Decrement button - larger touch area
           GestureDetector(
-            onTap: () => onChanged((value - 5).clamp(5, 120)),
-            child: Icon(
-              Icons.keyboard_arrow_down_rounded,
-              color: colors.textSecondary,
+            onTap: _decrement,
+            onLongPressStart: (_) => _startLongPress(false),
+            onLongPressEnd: (_) => _stopLongPress(),
+            onLongPressCancel: _stopLongPress,
+            behavior: HitTestBehavior.opaque,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Icon(
+                Icons.keyboard_arrow_down_rounded,
+                size: 32,
+                color: colors.textSecondary,
+              ),
             ),
           ),
         ],
@@ -289,8 +403,7 @@ Future<void> showTimerSettings({
   required BuildContext context,
   required int focusMinutes,
   required int breakMinutes,
-  required int longBreakMinutes,
-  required void Function(int focus, int shortBreak, int longBreak) onSave,
+  required void Function(int focus, int breakMins) onSave,
 }) {
   return showModalBottomSheet(
     context: context,
@@ -299,7 +412,6 @@ Future<void> showTimerSettings({
     builder: (context) => TimerSettingsSheet(
       initialFocusMinutes: focusMinutes,
       initialBreakMinutes: breakMinutes,
-      initialLongBreakMinutes: longBreakMinutes,
       onSave: onSave,
     ),
   );
