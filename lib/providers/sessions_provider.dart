@@ -44,6 +44,14 @@ class SessionsProvider extends ChangeNotifier {
     }
   }
 
+  /// Reset pause count for current session (e.g. duration changed)
+  void resetPauseCount() {
+    if (_currentSession != null) {
+      _currentSession!.resetPauseCount();
+      notifyListeners();
+    }
+  }
+
   /// Complete current session
   Future<void> completeSession({required int actualSeconds}) async {
     if (_currentSession != null) {
@@ -123,9 +131,11 @@ class SessionsProvider extends ChangeNotifier {
   /// Get predicted project for current hour based on history
   String? getPredictedProject() {
     final hour = DateTime.now().hour;
-    final sessions = getSessionsAtHour(hour);
+    // Updated: Query last 30 days instead of 7
+    final sessions = getSessionsAtHour(hour, lastDays: 30);
 
-    if (sessions.isEmpty) return null;
+    // Need at least 5 data points to make a prediction
+    if (sessions.length < 5) return null;
 
     // Count projects
     final projectCounts = <String, int>{};
@@ -148,9 +158,9 @@ class SessionsProvider extends ChangeNotifier {
       }
     });
 
-    // Only suggest if >60% confidence
+    // Updated: Lower confidence threshold to > 50%
     final confidence = topCount / sessions.length;
-    return confidence > 0.6 ? topProject : null;
+    return confidence > 0.5 ? topProject : null;
   }
 
   /// Get total focus time today (seconds)

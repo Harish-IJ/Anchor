@@ -118,6 +118,11 @@ class _ProjectPickerSheetState extends State<ProjectPickerSheet> {
                 widget.onClear();
               }
               await context.read<ProjectsProvider>().deleteProject(project.id);
+              // Reset to list view after deletion
+              setState(() {
+                _isEditing = false;
+                _editingProject = null;
+              });
             },
             child: const Text('Delete', style: TextStyle(color: Colors.red)),
           ),
@@ -161,7 +166,7 @@ class _ProjectPickerSheetState extends State<ProjectPickerSheet> {
                           width: 40,
                           height: 4,
                           decoration: BoxDecoration(
-                            color: colors.textSecondary.withOpacity(0.3),
+                            color: colors.textSecondary.withValues(alpha: 0.3),
                             borderRadius: BorderRadius.circular(2),
                           ),
                         ),
@@ -186,34 +191,57 @@ class _ProjectPickerSheetState extends State<ProjectPickerSheet> {
                           ),
                           if (!_isCreating && !_isEditing)
                             GestureDetector(
-                              onTap: _startCreate,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 14,
-                                  vertical: 8,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: colors.primary.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      Icons.add_rounded,
-                                      size: 18,
-                                      color: colors.primary,
+                              onTap: () {
+                                if (projects.length >=
+                                    ProjectsProvider.maxProjects) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        'Maximum of ${ProjectsProvider.maxProjects} projects allowed',
+                                      ),
+                                      behavior: SnackBarBehavior.floating,
                                     ),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      'New',
-                                      style: theme.textTheme.bodyMedium
-                                          ?.copyWith(
-                                            color: colors.primary,
-                                            fontWeight: FontWeight.w600,
-                                          ),
+                                  );
+                                  return;
+                                }
+                                _startCreate();
+                              },
+                              child: Opacity(
+                                opacity:
+                                    projects.length >=
+                                        ProjectsProvider.maxProjects
+                                    ? 0.5
+                                    : 1.0,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 8,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: colors.primary.withValues(
+                                      alpha: 0.1,
                                     ),
-                                  ],
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.add_rounded,
+                                        size: 18,
+                                        color: colors.primary,
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        'New',
+                                        style: theme.textTheme.bodyMedium
+                                            ?.copyWith(
+                                              color: colors.primary,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
                             ),
@@ -279,7 +307,7 @@ class _ProjectPickerSheetState extends State<ProjectPickerSheet> {
             spacing: 12,
             runSpacing: 12,
             children: projectColors.map((color) {
-              final isSelected = _selectedColor.value == color.value;
+              final isSelected = _selectedColor.toARGB32() == color.toARGB32();
               return GestureDetector(
                 onTap: () => setState(() => _selectedColor = color),
                 child: AnimatedContainer(
@@ -318,7 +346,7 @@ class _ProjectPickerSheetState extends State<ProjectPickerSheet> {
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     side: BorderSide(
-                      color: colors.textSecondary.withOpacity(0.3),
+                      color: colors.textSecondary.withValues(alpha: 0.3),
                     ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -350,6 +378,29 @@ class _ProjectPickerSheetState extends State<ProjectPickerSheet> {
               ),
             ],
           ),
+          // Delete button (Only when editing)
+          if (_isEditing && _editingProject != null) ...[
+            const SizedBox(height: 24),
+            TextButton(
+              onPressed: () => _confirmDelete(_editingProject!),
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.red,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(color: Colors.red.withValues(alpha: 0.2)),
+                ),
+              ),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.delete_outline_rounded, size: 20),
+                  SizedBox(width: 8),
+                  Text('Delete Project'),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 40),
         ],
       ),
@@ -361,7 +412,17 @@ class _ProjectPickerSheetState extends State<ProjectPickerSheet> {
     dynamic colors,
     List<Project> projects,
   ) {
-    if (projects.isEmpty) {
+    // Sort projects: Selected first, then others
+    final sortedProjects = List<Project>.from(projects);
+    if (widget.currentProjectId != null) {
+      sortedProjects.sort((a, b) {
+        if (a.id == widget.currentProjectId) return -1;
+        if (b.id == widget.currentProjectId) return 1;
+        return 0;
+      });
+    }
+
+    if (sortedProjects.isEmpty) {
       return SliverList(
         delegate: SliverChildListDelegate([
           SizedBox(
@@ -373,7 +434,7 @@ class _ProjectPickerSheetState extends State<ProjectPickerSheet> {
                   Icon(
                     Icons.folder_open_rounded,
                     size: 64,
-                    color: colors.textSecondary.withOpacity(0.4),
+                    color: colors.textSecondary.withValues(alpha: 0.4),
                   ),
                   const SizedBox(height: 16),
                   Text(
@@ -386,7 +447,7 @@ class _ProjectPickerSheetState extends State<ProjectPickerSheet> {
                   Text(
                     'Tap "New" to create your first project',
                     style: theme.textTheme.bodyMedium?.copyWith(
-                      color: colors.textSecondary.withOpacity(0.7),
+                      color: colors.textSecondary.withValues(alpha: 0.7),
                     ),
                   ),
                 ],
@@ -399,7 +460,7 @@ class _ProjectPickerSheetState extends State<ProjectPickerSheet> {
 
     return SliverList(
       delegate: SliverChildBuilderDelegate((context, index) {
-        if (index == projects.length) {
+        if (index == sortedProjects.length) {
           if (widget.currentProjectId == null) return const SizedBox();
           return Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
@@ -418,26 +479,30 @@ class _ProjectPickerSheetState extends State<ProjectPickerSheet> {
           );
         }
 
-        final project = projects[index];
+        final project = sortedProjects[index];
         final isSelected = project.id == widget.currentProjectId;
 
         return Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
           child: GestureDetector(
             onTap: () {
-              widget.onSelect(project);
+              if (isSelected) {
+                widget.onClear();
+              } else {
+                widget.onSelect(project);
+              }
               Navigator.pop(context);
             },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               decoration: BoxDecoration(
                 color: isSelected
-                    ? colors.primary.withOpacity(0.1)
+                    ? colors.primary.withValues(alpha: 0.1)
                     : colors.surfaceVariant,
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
                   color: isSelected
-                      ? colors.primary.withOpacity(0.3)
+                      ? colors.primary.withValues(alpha: 0.3)
                       : Colors.transparent,
                   width: 1.5,
                 ),
@@ -476,7 +541,7 @@ class _ProjectPickerSheetState extends State<ProjectPickerSheet> {
                         color: colors.primary,
                       ),
                     ),
-                  // Edit button - larger touch area
+                  // Edit button
                   Material(
                     color: Colors.transparent,
                     child: InkWell(
@@ -492,28 +557,12 @@ class _ProjectPickerSheetState extends State<ProjectPickerSheet> {
                       ),
                     ),
                   ),
-                  // Delete button - larger touch area
-                  Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: () => _confirmDelete(project),
-                      borderRadius: BorderRadius.circular(8),
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Icon(
-                          Icons.delete_rounded,
-                          size: 20,
-                          color: colors.textSecondary,
-                        ),
-                      ),
-                    ),
-                  ),
                 ],
               ),
             ),
           ),
         );
-      }, childCount: projects.length + 1),
+      }, childCount: projects.length),
     );
   }
 }

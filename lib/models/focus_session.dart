@@ -64,6 +64,9 @@ class FocusSession extends HiveObject {
   @HiveField(11)
   final DateTime createdAt;
 
+  @HiveField(12)
+  bool isDurationModified;
+
   FocusSession({
     required this.id,
     this.projectId,
@@ -76,6 +79,7 @@ class FocusSession extends HiveObject {
     this.pauseCount = 0,
     this.completionPercentage = 0.0,
     this.notes,
+    this.isDurationModified = false,
     DateTime? createdAt,
   }) : createdAt = createdAt ?? DateTime.now();
 
@@ -104,6 +108,12 @@ class FocusSession extends HiveObject {
   /// Record a pause
   void recordPause() {
     pauseCount++;
+  }
+
+  /// Reset pause count (e.g. after timer adjustment)
+  void resetPauseCount() {
+    pauseCount = 0;
+    isDurationModified = true;
   }
 
   /// Check if frequent pauses suggest shorter timer

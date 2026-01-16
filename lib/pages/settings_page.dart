@@ -269,7 +269,7 @@ class SettingsPage extends StatelessWidget {
                     Text(
                       'Version 1.0.0',
                       style: theme.textTheme.bodySmall?.copyWith(
-                        color: colors.textSecondary.withOpacity(0.7),
+                        color: colors.textSecondary.withValues(alpha: 0.7),
                       ),
                     ),
                   ],

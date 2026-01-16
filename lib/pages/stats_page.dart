@@ -11,20 +11,12 @@ import '../models/focus_session.dart';
 class StatsPage extends StatelessWidget {
   const StatsPage({super.key});
 
-  String _formatDuration(int seconds) {
-    final hours = seconds ~/ 3600;
-    final minutes = (seconds % 3600) ~/ 60;
-    if (hours > 0) {
-      return '${hours}h ${minutes}m';
-    }
-    return '${minutes}m';
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = context.watch<ThemeProvider>().colors;
     final sessions = context.watch<SessionsProvider>();
+    final projects = context.watch<ProjectsProvider>();
     final prefs = context.watch<PreferencesProvider>();
 
     final todayFocus = sessions.getTodayFocusSeconds();
@@ -116,8 +108,46 @@ class StatsPage extends StatelessWidget {
 
               const SizedBox(height: 20),
 
-              // Weekly Bar Chart
-              _WeeklyBarChart(sessions: sessions, colors: colors, theme: theme),
+              // Weekly Stacked Bar Chart
+              _WeeklyStackedBarChart(
+                sessions: sessions,
+                projects: projects,
+                colors: colors,
+                theme: theme,
+              ),
+
+              const SizedBox(height: 20),
+
+              // 3/6 Month Trend
+              _TrendAreaChart(sessions: sessions, colors: colors, theme: theme),
+
+              const SizedBox(height: 20),
+
+              // Monthly Completion Rate
+              _CompletionRateChart(
+                sessions: sessions,
+                colors: colors,
+                theme: theme,
+              ),
+
+              const SizedBox(height: 20),
+
+              // Session Quality Summary
+              _SessionQualityCard(
+                sessions: sessions,
+                colors: colors,
+                theme: theme,
+              ),
+
+              const SizedBox(height: 20),
+
+              // Weekly Stacked Bar Chart with Incomplete Sessions
+              _WeeklyStackedBarChart(
+                sessions: sessions,
+                projects: projects,
+                colors: colors,
+                theme: theme,
+              ),
 
               const SizedBox(height: 20),
 
@@ -241,7 +271,7 @@ class _TodayStatsCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -267,7 +297,7 @@ class _TodayStatsCard extends StatelessWidget {
                   vertical: 4,
                 ),
                 decoration: BoxDecoration(
-                  color: _getComparisonColor().withOpacity(0.1),
+                  color: _getComparisonColor().withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
@@ -347,7 +377,7 @@ class _StatTile extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
+        color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
@@ -374,66 +404,91 @@ class _StatTile extends StatelessWidget {
   }
 }
 
-/// Weekly bar chart showing focus hours per day with navigation
-class _WeeklyBarChart extends StatefulWidget {
+/// Weekly Stacked Bar Chart (Last 7 days)
+class _WeeklyStackedBarChart extends StatefulWidget {
   final SessionsProvider sessions;
+  final ProjectsProvider projects;
   final dynamic colors;
   final ThemeData theme;
 
-  const _WeeklyBarChart({
+  const _WeeklyStackedBarChart({
     required this.sessions,
+    required this.projects,
     required this.colors,
     required this.theme,
   });
 
   @override
-  State<_WeeklyBarChart> createState() => _WeeklyBarChartState();
+  State<_WeeklyStackedBarChart> createState() => _WeeklyStackedBarChartState();
 }
 
-class _WeeklyBarChartState extends State<_WeeklyBarChart> {
-  int _weekOffset = 0; // 0 = current week, -1 = last week, etc.
+class _WeeklyStackedBarChartState extends State<_WeeklyStackedBarChart> {
+  int _periodOffset = 0; // 0 = current 1 week
 
-  String _getWeekLabel() {
-    if (_weekOffset == 0) return 'This Week';
-    if (_weekOffset == -1) return 'Last Week';
-    return '${-_weekOffset} weeks ago';
+  String _getPeriodLabel() {
+    if (_periodOffset == 0) return 'Last 7 Days';
+    return '${-_periodOffset} weeks ago';
   }
 
   @override
   Widget build(BuildContext context) {
-    final now = DateTime.now().subtract(Duration(days: -_weekOffset * 7));
-    final weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    // 7 days window
+    final now = DateTime.now().subtract(Duration(days: -_periodOffset * 7));
 
-    // Get 7 days data based on offset
-    final List<double> dailyHours = [];
+    // Prepare data: List of 7 days
+    final List<Map<String, double>> dailyData = [];
+    final Set<String> allProjectIds = {};
+
+    // Iterate 6 down to 0
     for (int i = 6; i >= 0; i--) {
       final date = now.subtract(Duration(days: i));
       final startOfDay = DateTime(date.year, date.month, date.day);
       final endOfDay = startOfDay.add(const Duration(days: 1));
 
-      final daySessions = widget.sessions.getSessionsInRange(
-        startOfDay,
-        endOfDay,
-      );
-      final focusSecs = daySessions
-          .where(
-            (s) =>
-                s.type == SessionType.focus &&
-                s.status == SessionStatus.completed,
-          )
-          .fold(0, (sum, s) => sum + s.actualDurationSeconds);
+      final sessions = widget.sessions.getSessionsInRange(startOfDay, endOfDay);
+      final Map<String, double> dayProjectHours = {};
 
-      dailyHours.add(focusSecs / 3600);
+      double incompleteHours = 0;
+
+      for (final s in sessions) {
+        if (s.type == SessionType.focus) {
+          if (s.status == SessionStatus.completed) {
+            final pid = s.projectId ?? 'none';
+            dayProjectHours[pid] =
+                (dayProjectHours[pid] ?? 0) + (s.actualDurationSeconds / 3600);
+            allProjectIds.add(pid);
+          } else {
+            // Incomplete session duration
+            incompleteHours += (s.actualDurationSeconds / 3600);
+          }
+        }
+      }
+      dailyData.add({...dayProjectHours, 'incomplete': incompleteHours});
     }
 
-    final maxY = dailyHours.isEmpty
-        ? 4.0
-        : (dailyHours.reduce((a, b) => a > b ? a : b) + 1).ceilToDouble().clamp(
-            2.0,
-            12.0,
-          );
+    final projectColorsList = [
+      const Color(0xFFFF6712),
+      const Color(0xFF0891B2),
+      const Color(0xFF059669),
+      const Color(0xFF7C3AED),
+      const Color(0xFFDC2626),
+      const Color(0xFF2563EB),
+    ];
 
-    final isCurrentWeek = _weekOffset == 0;
+    Color getProjectColor(String pid) {
+      if (pid == 'none') return widget.colors.surfaceVariant;
+      final proj = widget.projects.getProject(pid);
+      if (proj != null) return proj.color;
+      return projectColorsList[pid.hashCode.abs() % projectColorsList.length];
+    }
+
+    final maxY = dailyData.isEmpty
+        ? 5.0
+        : (dailyData
+                      .map((d) => d.values.fold(0.0, (sum, v) => sum + v))
+                      .reduce((a, b) => a > b ? a : b) +
+                  1)
+              .ceilToDouble();
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -451,111 +506,125 @@ class _WeeklyBarChartState extends State<_WeeklyBarChart> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header with navigation
+          // Header
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                _getWeekLabel(),
-                style: widget.theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: widget.colors.textPrimary,
-                ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _getPeriodLabel(),
+                    style: widget.theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: widget.colors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Daily focus hours',
+                    style: widget.theme.textTheme.bodySmall?.copyWith(
+                      color: widget.colors.textSecondary,
+                    ),
+                  ),
+                ],
               ),
               Row(
                 children: [
                   IconButton(
-                    onPressed: () => setState(() => _weekOffset--),
                     icon: Icon(
                       Icons.chevron_left_rounded,
                       color: widget.colors.textSecondary,
                     ),
-                    iconSize: 24,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(
-                      minWidth: 32,
-                      minHeight: 32,
-                    ),
+                    onPressed: () => setState(() => _periodOffset--),
                   ),
                   IconButton(
-                    onPressed: isCurrentWeek
-                        ? null
-                        : () => setState(() => _weekOffset++),
                     icon: Icon(
                       Icons.chevron_right_rounded,
-                      color: isCurrentWeek
+                      color: _periodOffset == 0
                           ? widget.colors.textSecondary.withValues(alpha: 0.3)
                           : widget.colors.textSecondary,
                     ),
-                    iconSize: 24,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(
-                      minWidth: 32,
-                      minHeight: 32,
-                    ),
+                    onPressed: _periodOffset == 0
+                        ? null
+                        : () => setState(() => _periodOffset++),
                   ),
                 ],
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 24),
 
+          // Chart
           SizedBox(
-            height: 180,
+            height: 200,
             child: BarChart(
               BarChartData(
-                maxY: maxY,
-                barGroups: List.generate(7, (index) {
-                  return BarChartGroupData(
-                    x: index,
-                    barRods: [
-                      BarChartRodData(
-                        toY: dailyHours[index],
-                        color: (index == 6 && isCurrentWeek)
-                            ? widget.colors.primary
-                            : widget.colors.primary.withValues(alpha: 0.4),
-                        width: 24,
-                        borderRadius: const BorderRadius.vertical(
-                          top: Radius.circular(8),
+                alignment: BarChartAlignment.spaceAround,
+                maxY: maxY > 0 ? maxY : 5,
+                barTouchData: BarTouchData(
+                  touchTooltipData: BarTouchTooltipData(
+                    getTooltipColor: (_) => widget.colors.surfaceVariant,
+                    getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                      final total = rod.rodStackItems.fold(
+                        0.0,
+                        (s, i) => s + (i.toY - i.fromY),
+                      );
+                      return BarTooltipItem(
+                        '${total.toStringAsFixed(1)}h',
+                        TextStyle(
+                          color: widget.colors.textPrimary,
+                          fontWeight: FontWeight.bold,
                         ),
-                      ),
-                    ],
-                  );
-                }),
+                      );
+                    },
+                  ),
+                ),
                 titlesData: FlTitlesData(
-                  leftTitles: AxisTitles(
+                  show: true,
+                  bottomTitles: AxisTitles(
                     sideTitles: SideTitles(
                       showTitles: true,
                       reservedSize: 30,
                       getTitlesWidget: (value, meta) {
-                        return Text(
-                          '${value.toInt()}h',
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: widget.colors.textSecondary,
+                        final index = value.toInt();
+                        if (index < 0 || index >= 7) return const SizedBox();
+
+                        final dayDate = now.subtract(Duration(days: 6 - index));
+                        final weekday = [
+                          'M',
+                          'T',
+                          'W',
+                          'T',
+                          'F',
+                          'S',
+                          'S',
+                        ][dayDate.weekday - 1];
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 8.0),
+                          child: Text(
+                            '${dayDate.day}\n$weekday',
+                            textAlign: TextAlign.center,
+                            style: widget.theme.textTheme.bodySmall?.copyWith(
+                              color: widget.colors.textSecondary,
+                              fontSize: 9,
+                            ),
                           ),
                         );
                       },
                     ),
                   ),
-                  bottomTitles: AxisTitles(
+                  leftTitles: AxisTitles(
                     sideTitles: SideTitles(
                       showTitles: true,
+                      reservedSize: 30,
+                      interval: maxY > 5 ? maxY / 5 : 1,
                       getTitlesWidget: (value, meta) {
-                        final dayIndex = (now.weekday - 7 + value.toInt()) % 7;
-                        return Padding(
-                          padding: const EdgeInsets.only(top: 8),
-                          child: Text(
-                            weekDays[dayIndex],
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: (value.toInt() == 6 && isCurrentWeek)
-                                  ? widget.colors.primary
-                                  : widget.colors.textSecondary,
-                              fontWeight: (value.toInt() == 6 && isCurrentWeek)
-                                  ? FontWeight.w600
-                                  : FontWeight.normal,
-                            ),
+                        return Text(
+                          value.toInt().toString(),
+                          style: widget.theme.textTheme.bodySmall?.copyWith(
+                            color: widget.colors.textSecondary,
+                            fontSize: 10,
                           ),
                         );
                       },
@@ -568,17 +637,103 @@ class _WeeklyBarChartState extends State<_WeeklyBarChart> {
                     sideTitles: SideTitles(showTitles: false),
                   ),
                 ),
-                borderData: FlBorderData(show: false),
                 gridData: FlGridData(
                   show: true,
                   drawVerticalLine: false,
-                  horizontalInterval: 1,
+                  horizontalInterval: maxY > 5 ? maxY / 5 : 1,
                   getDrawingHorizontalLine: (value) => FlLine(
                     color: widget.colors.surfaceVariant,
                     strokeWidth: 1,
                   ),
                 ),
+                borderData: FlBorderData(show: false),
+                barGroups: List.generate(7, (index) {
+                  final data = dailyData[index];
+                  final incomplete = data['incomplete'] ?? 0.0;
+
+                  // Rod 1: Stacked Projects
+                  final rods = <BarChartRodStackItem>[];
+                  double currentY = 0;
+                  // Sort projects for consistent stacking? Or simply iterate
+                  // We only need keys that are project IDs
+                  final projectKeys = data.keys.where((k) => k != 'incomplete');
+
+                  for (final pid in projectKeys) {
+                    final val = data[pid]!;
+                    if (val > 0) {
+                      rods.add(
+                        BarChartRodStackItem(
+                          currentY,
+                          currentY + val,
+                          getProjectColor(pid),
+                        ),
+                      );
+                      currentY += val;
+                    }
+                  }
+
+                  return BarChartGroupData(
+                    x: index,
+                    barsSpace: 4, // Space between the two bars
+                    barRods: [
+                      // Bar 1: Incomplete Sessions (Red) - LEFT
+                      BarChartRodData(
+                        toY: incomplete,
+                        width: 12,
+                        borderRadius: BorderRadius.circular(4),
+                        color: const Color(0xFFDC2626),
+                        backDrawRodData: BackgroundBarChartRodData(
+                          show: true,
+                          toY: maxY > 0 ? maxY : 5,
+                          color: widget.colors.surfaceVariant.withValues(
+                            alpha: 0.3,
+                          ),
+                        ),
+                      ),
+                      // Bar 2: Focus Time (Stacked) - RIGHT
+                      BarChartRodData(
+                        toY: currentY,
+                        width: 12,
+                        borderRadius: BorderRadius.circular(4),
+                        color:
+                            Colors.transparent, // Color handled by stack items
+                        rodStackItems: rods,
+                        backDrawRodData: BackgroundBarChartRodData(
+                          show: true,
+                          toY: maxY > 0 ? maxY : 5,
+                          color: widget.colors.surfaceVariant.withValues(
+                            alpha: 0.3,
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                }),
               ),
+            ),
+          ),
+
+          // Legend for Incomplete
+          Padding(
+            padding: const EdgeInsets.only(top: 16),
+            child: Row(
+              children: [
+                Container(
+                  width: 12,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFDC2626),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Incomplete Sessions',
+                  style: widget.theme.textTheme.bodySmall?.copyWith(
+                    color: widget.colors.textSecondary,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -1398,7 +1553,7 @@ class _ProductivityHeatmapState extends State<_ProductivityHeatmap> {
 }
 
 /// Project breakdown donut chart
-class _ProjectDonutChart extends StatelessWidget {
+class _ProjectDonutChart extends StatefulWidget {
   final SessionsProvider sessions;
   final dynamic colors;
   final ThemeData theme;
@@ -1410,13 +1565,20 @@ class _ProjectDonutChart extends StatelessWidget {
   });
 
   @override
+  State<_ProjectDonutChart> createState() => _ProjectDonutChartState();
+}
+
+class _ProjectDonutChartState extends State<_ProjectDonutChart> {
+  int _touchedIndex = -1;
+
+  @override
   Widget build(BuildContext context) {
     final projects = context.watch<ProjectsProvider>();
     final now = DateTime.now();
     final monthStart = DateTime(now.year, now.month, 1);
 
     // Get this month's sessions
-    final monthSessions = sessions
+    final monthSessions = widget.sessions
         .getSessionsInRange(monthStart, now)
         .where(
           (s) =>
@@ -1439,12 +1601,28 @@ class _ProjectDonutChart extends StatelessWidget {
 
     final totalMinutes = sortedProjects.fold(0, (sum, e) => sum + e.value);
 
+    // Prepare data for "Center Text"
+    String centerTopText = 'Total';
+    String centerBottomText = '${totalMinutes ~/ 60}h';
+    Color? centerColor;
+
+    if (_touchedIndex != -1 && _touchedIndex < sortedProjects.length) {
+      final entry = sortedProjects[_touchedIndex];
+      final project = projects.getProject(entry.key);
+      centerTopText = project?.name ?? 'No Project';
+
+      final hrs = entry.value ~/ 60;
+      final mins = entry.value % 60;
+      centerBottomText = hrs > 0 ? '${hrs}h ${mins}m' : '${mins}m';
+      centerColor = project?.color;
+    }
+
     if (totalMinutes == 0) {
       // Show skeleton donut chart with proper dimensions
       return Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: colors.surface,
+          color: widget.colors.surface,
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
@@ -1459,16 +1637,16 @@ class _ProjectDonutChart extends StatelessWidget {
           children: [
             // Header
             Text(
-              'Project Distribution',
-              style: theme.textTheme.titleMedium?.copyWith(
+              'Projects This Month',
+              style: widget.theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.w600,
-                color: colors.textPrimary,
+                color: widget.colors.textPrimary,
               ),
             ),
             Text(
               'This Month',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: colors.textSecondary,
+              style: widget.theme.textTheme.bodySmall?.copyWith(
+                color: widget.colors.textSecondary,
               ),
             ),
             const SizedBox(height: 24),
@@ -1478,19 +1656,19 @@ class _ProjectDonutChart extends StatelessWidget {
               children: [
                 // Donut placeholder
                 SizedBox(
-                  width: 100,
-                  height: 100,
+                  width: 140,
+                  height: 140,
                   child: Stack(
                     alignment: Alignment.center,
                     children: [
                       // Outer ring
                       Container(
-                        width: 100,
-                        height: 100,
+                        width: 140,
+                        height: 140,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: colors.surfaceVariant,
+                            color: widget.colors.surfaceVariant,
                             width: 20,
                           ),
                         ),
@@ -1498,8 +1676,10 @@ class _ProjectDonutChart extends StatelessWidget {
                       // Center icon
                       Icon(
                         Icons.pie_chart_outline,
-                        size: 32,
-                        color: colors.textSecondary.withValues(alpha: 0.5),
+                        size: 48,
+                        color: widget.colors.textSecondary.withValues(
+                          alpha: 0.5,
+                        ),
                       ),
                     ],
                   ),
@@ -1514,15 +1694,17 @@ class _ProjectDonutChart extends StatelessWidget {
                     children: [
                       Text(
                         'No project data this month',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: colors.textSecondary,
+                        style: widget.theme.textTheme.bodyMedium?.copyWith(
+                          color: widget.colors.textSecondary,
                         ),
                       ),
                       const SizedBox(height: 8),
                       Text(
                         'Complete focus sessions to see your project breakdown here.',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: colors.textSecondary.withValues(alpha: 0.7),
+                        style: widget.theme.textTheme.bodySmall?.copyWith(
+                          color: widget.colors.textSecondary.withValues(
+                            alpha: 0.7,
+                          ),
                         ),
                       ),
                     ],
@@ -1547,17 +1729,24 @@ class _ProjectDonutChart extends StatelessWidget {
     ];
 
     int colorIndex = 0;
-    for (final entry in sortedProjects.take(6)) {
+    for (
+      int i = 0;
+      i < sortedProjects.take(ProjectsProvider.maxProjects).length;
+      i++
+    ) {
+      final entry = sortedProjects[i];
       final project = projects.getProject(entry.key);
       final color =
           project?.color ?? projectColors[colorIndex % projectColors.length];
-      final percent = (entry.value / totalMinutes * 100);
+
+      final isTouched = i == _touchedIndex;
+      final radius = isTouched ? 35.0 : 30.0;
 
       sections.add(
         PieChartSectionData(
           value: entry.value.toDouble(),
           color: color,
-          radius: 30,
+          radius: radius,
           showTitle: false,
         ),
       );
@@ -1567,7 +1756,7 @@ class _ProjectDonutChart extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: colors.surface,
+        color: widget.colors.surface,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
@@ -1582,84 +1771,896 @@ class _ProjectDonutChart extends StatelessWidget {
         children: [
           Text(
             'Projects This Month',
-            style: theme.textTheme.titleMedium?.copyWith(
+            style: widget.theme.textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.w600,
-              color: colors.textPrimary,
+              color: widget.colors.textPrimary,
             ),
           ),
           const SizedBox(height: 16),
 
-          Row(
+          // Chart + Legend Column
+          Column(
             children: [
-              // Donut chart
+              // Centered Donut chart
               SizedBox(
-                width: 100,
-                height: 100,
-                child: PieChart(
-                  PieChartData(
-                    sectionsSpace: 2,
-                    centerSpaceRadius: 30,
-                    sections: sections,
-                  ),
+                width: 200,
+                height: 200,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    PieChart(
+                      PieChartData(
+                        pieTouchData: PieTouchData(
+                          touchCallback:
+                              (FlTouchEvent event, pieTouchResponse) {
+                                setState(() {
+                                  if (!event.isInterestedForInteractions ||
+                                      pieTouchResponse == null ||
+                                      pieTouchResponse.touchedSection == null) {
+                                    _touchedIndex = -1;
+                                    return;
+                                  }
+                                  _touchedIndex = pieTouchResponse
+                                      .touchedSection!
+                                      .touchedSectionIndex;
+                                });
+                              },
+                        ),
+                        sectionsSpace: 2,
+                        centerSpaceRadius: 60,
+                        sections: sections,
+                      ),
+                    ),
+                    Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          centerTopText,
+                          textAlign: TextAlign.center,
+                          style: widget.theme.textTheme.bodySmall?.copyWith(
+                            color: widget.colors.textSecondary,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          centerBottomText,
+                          textAlign: TextAlign.center,
+                          style: widget.theme.textTheme.titleLarge?.copyWith(
+                            color: centerColor ?? widget.colors.textPrimary,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
 
-              const SizedBox(width: 20),
+              const SizedBox(height: 24),
 
-              // Legend
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: sortedProjects.take(5).map((entry) {
-                    final project = projects.getProject(entry.key);
-                    final name = project?.name ?? 'No Project';
-                    final color =
-                        project?.color ??
-                        projectColors[sortedProjects.indexOf(entry) %
-                            projectColors.length];
-                    final percent = (entry.value / totalMinutes * 100).round();
-                    final hours = entry.value ~/ 60;
-                    final mins = entry.value % 60;
+              // GRID Legend
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  return Wrap(
+                    spacing: 16,
+                    runSpacing: 12,
+                    children: sortedProjects
+                        .take(ProjectsProvider.maxProjects)
+                        .map((entry) {
+                          final project = projects.getProject(entry.key);
+                          final name = project?.name ?? 'No Project';
+                          final index = sortedProjects.indexOf(entry);
+                          final color =
+                              project?.color ??
+                              projectColors[index % projectColors.length];
 
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 3),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 10,
-                            height: 10,
-                            decoration: BoxDecoration(
-                              color: color,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              name,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: colors.textPrimary,
+                          final hours = entry.value ~/ 60;
+                          final mins = entry.value % 60;
+
+                          // approx width for 2 columns (minus spacing)
+                          final itemWidth = (constraints.maxWidth - 16) / 2;
+                          // If this item is 'touched', we could highlight it, but for now standard display
+                          final isSelected = index == _touchedIndex;
+
+                          return SizedBox(
+                            width: itemWidth,
+                            child: Opacity(
+                              opacity: (_touchedIndex == -1 || isSelected)
+                                  ? 1.0
+                                  : 0.4,
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 8,
+                                    height: 8,
+                                    decoration: BoxDecoration(
+                                      color: color,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      name,
+                                      style: widget.theme.textTheme.bodySmall
+                                          ?.copyWith(
+                                            color: widget.colors.textPrimary,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    hours > 0
+                                        ? '${hours}h ${mins}m'
+                                        : '${mins}m',
+                                    style: widget.theme.textTheme.bodySmall
+                                        ?.copyWith(
+                                          color: widget.colors.textSecondary,
+                                          fontSize: 10,
+                                        ),
+                                  ),
+                                ],
                               ),
-                              overflow: TextOverflow.ellipsis,
                             ),
-                          ),
-                          Text(
-                            hours > 0 ? '${hours}h ${mins}m' : '${mins}m',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: colors.textSecondary,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }).toList(),
-                ),
+                          );
+                        })
+                        .toList(),
+                  );
+                },
               ),
             ],
           ),
         ],
       ),
+    );
+  }
+}
+
+/// 3/6 Month Trend Area Chart
+class _TrendAreaChart extends StatefulWidget {
+  final SessionsProvider sessions;
+  final dynamic colors;
+  final ThemeData theme;
+
+  const _TrendAreaChart({
+    required this.sessions,
+    required this.colors,
+    required this.theme,
+  });
+
+  @override
+  State<_TrendAreaChart> createState() => _TrendAreaChartState();
+}
+
+class _TrendAreaChartState extends State<_TrendAreaChart> {
+  int _selectedMonths = 3;
+
+  @override
+  Widget build(BuildContext context) {
+    final months = _selectedMonths;
+    final now = DateTime.now();
+    // Start from 1st of month X months ago
+    final startMonth = DateTime(now.year, now.month - months + 1, 1);
+
+    final List<FlSpot> spots = [];
+    double maxHours = 0;
+    final List<String> monthLabels = [];
+
+    for (int i = 0; i < months; i++) {
+      final d = DateTime(startMonth.year, startMonth.month + i, 1);
+      final nextM = DateTime(startMonth.year, startMonth.month + i + 1, 1);
+
+      final sessions = widget.sessions.getSessionsInRange(d, nextM);
+      final totalSecs = sessions
+          .where(
+            (s) =>
+                s.type == SessionType.focus &&
+                s.status == SessionStatus.completed,
+          )
+          .fold(0, (sum, s) => sum + s.actualDurationSeconds);
+
+      final hours = totalSecs / 3600.0;
+      if (hours > maxHours) maxHours = hours;
+
+      spots.add(FlSpot(i.toDouble(), hours));
+
+      const mNames = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+      ];
+      monthLabels.add(mNames[d.month - 1]);
+    }
+
+    // Gradient below the line
+    final List<Color> gradientColors = [
+      widget.colors.primary.withValues(alpha: 0.3),
+      widget.colors.primary.withValues(alpha: 0.0),
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: widget.colors.surface,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Focus Trend',
+                style: widget.theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: widget.colors.textPrimary,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: widget.colors.surfaceVariant,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<int>(
+                    value: _selectedMonths,
+                    isDense: true,
+                    icon: Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      color: widget.colors.textSecondary,
+                      size: 20,
+                    ),
+                    dropdownColor: widget.colors.surface,
+                    borderRadius: BorderRadius.circular(12),
+                    style: widget.theme.textTheme.bodyMedium?.copyWith(
+                      color: widget.colors.textPrimary,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: 3, child: Text('3 Months')),
+                      DropdownMenuItem(value: 6, child: Text('6 Months')),
+                      DropdownMenuItem(value: 9, child: Text('9 Months')),
+                      DropdownMenuItem(value: 12, child: Text('1 Year')),
+                    ],
+                    onChanged: (v) {
+                      if (v != null) setState(() => _selectedMonths = v);
+                    },
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          SizedBox(
+            height: 200,
+            child: LineChart(
+              LineChartData(
+                minY: 0,
+                maxY: maxHours * 1.2,
+                gridData: FlGridData(show: false),
+                titlesData: FlTitlesData(
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 30,
+                      interval: 1,
+                      getTitlesWidget: (value, meta) {
+                        final index = value.toInt();
+                        if (index < 0 || index >= monthLabels.length)
+                          return const SizedBox();
+
+                        // Sparse labels for 9 and 12 months
+                        // Show at least 5 labels. For 12 months, every 2nd is 6 labels.
+                        if (_selectedMonths > 6) {
+                          if (index % 2 != 0) return const SizedBox();
+                        }
+
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text(
+                            monthLabels[index],
+                            style: widget.theme.textTheme.bodySmall?.copyWith(
+                              fontSize: 10,
+                              color: widget.colors.textSecondary,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  leftTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                  topTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                  rightTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                ),
+                borderData: FlBorderData(show: false),
+                lineBarsData: [
+                  LineChartBarData(
+                    spots: spots,
+                    isCurved: true,
+                    color: widget.colors.primary,
+                    barWidth: 3,
+                    isStrokeCapRound: true,
+                    dotData: FlDotData(show: true),
+                    belowBarData: BarAreaData(
+                      show: true,
+                      gradient: LinearGradient(
+                        colors: gradientColors,
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                      ),
+                    ),
+                  ),
+                ],
+                lineTouchData: LineTouchData(
+                  touchTooltipData: LineTouchTooltipData(
+                    getTooltipColor: (_) => widget.colors.surfaceVariant,
+                    getTooltipItems: (touchedSpots) {
+                      return touchedSpots.map((spot) {
+                        return LineTooltipItem(
+                          '${spot.y.toStringAsFixed(1)}h',
+                          TextStyle(
+                            color: widget.colors.textPrimary,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        );
+                      }).toList();
+                    },
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Monthly Completion Rate Chart
+class _CompletionRateChart extends StatefulWidget {
+  final SessionsProvider sessions;
+  final dynamic colors;
+  final ThemeData theme;
+
+  const _CompletionRateChart({
+    required this.sessions,
+    required this.colors,
+    required this.theme,
+  });
+
+  @override
+  State<_CompletionRateChart> createState() => _CompletionRateChartState();
+}
+
+class _CompletionRateChartState extends State<_CompletionRateChart> {
+  int _selectedMonths = 3;
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final months = _selectedMonths;
+    final List<Map<String, dynamic>> data = [];
+
+    // Loop for selected months (reverse order: oldest to newest)
+    for (int i = months - 1; i >= 0; i--) {
+      final d = DateTime(now.year, now.month - i, 1);
+      final nextM = DateTime(now.year, now.month - i + 1, 1);
+
+      final monthSessions = widget.sessions
+          .getSessionsInRange(d, nextM)
+          .where((s) => s.type == SessionType.focus)
+          .toList();
+
+      final completed = monthSessions
+          .where((s) => s.status == SessionStatus.completed)
+          .length;
+      final total = monthSessions.length;
+      final rate = total > 0 ? (completed / total) * 100 : 0.0;
+
+      const mNames = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+      ];
+      data.add({
+        'label': mNames[d.month - 1],
+        'rate': rate,
+        'total': total,
+        'completed': completed,
+      });
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: widget.colors.surface,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Completion Rate',
+                style: widget.theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: widget.colors.textPrimary,
+                ),
+              ),
+              // Custom Toggle for Completion Rate
+              Container(
+                decoration: BoxDecoration(
+                  color: widget.colors.surfaceVariant,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                padding: const EdgeInsets.all(2),
+                child: Row(
+                  children: [
+                    for (final val in [3, 6])
+                      GestureDetector(
+                        onTap: () => setState(() => _selectedMonths = val),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _selectedMonths == val
+                                ? widget.colors.primary
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            '${val}M',
+                            style: widget.theme.textTheme.bodySmall?.copyWith(
+                              color: _selectedMonths == val
+                                  ? Colors.white
+                                  : widget.colors.textSecondary,
+                              fontWeight: _selectedMonths == val
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          SizedBox(
+            height: 180,
+            child: BarChart(
+              BarChartData(
+                maxY: 100,
+                barTouchData: BarTouchData(
+                  touchTooltipData: BarTouchTooltipData(
+                    getTooltipColor: (_) => widget.colors.surfaceVariant,
+                    getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                      final item = data[group.x.toInt()];
+                      final rate = item['rate'] as double;
+                      final completed = item['completed'] as int;
+                      final total = item['total'] as int;
+
+                      return BarTooltipItem(
+                        '${rate.toStringAsFixed(0)}%\n',
+                        TextStyle(
+                          color: widget.colors.textPrimary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        children: [
+                          TextSpan(
+                            text: '$completed/$total sessions',
+                            style: TextStyle(
+                              color: widget.colors.textSecondary,
+                              fontSize: 11,
+                              fontWeight: FontWeight.normal,
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+                titlesData: FlTitlesData(
+                  show: true,
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      getTitlesWidget: (value, meta) {
+                        final index = value.toInt();
+                        if (index < 0 || index >= data.length)
+                          return const SizedBox();
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text(
+                            data[index]['label'] as String,
+                            style: widget.theme.textTheme.bodySmall?.copyWith(
+                              color: widget.colors.textSecondary,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  leftTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 30,
+                      interval: 25,
+                      getTitlesWidget: (v, m) => Text(
+                        '${v.toInt()}%',
+                        style: widget.theme.textTheme.bodySmall?.copyWith(
+                          fontSize: 10,
+                          color: widget.colors.textSecondary,
+                        ),
+                      ),
+                    ),
+                  ),
+                  topTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                  rightTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                ),
+                gridData: FlGridData(
+                  show: true,
+                  drawVerticalLine: false,
+                  horizontalInterval: 25,
+                  getDrawingHorizontalLine: (v) => FlLine(
+                    color: widget.colors.surfaceVariant,
+                    strokeWidth: 1,
+                  ),
+                ),
+                borderData: FlBorderData(show: false),
+                barGroups: List.generate(data.length, (index) {
+                  final rate = data[index]['rate'] as double;
+                  return BarChartGroupData(
+                    x: index,
+                    barRods: [
+                      BarChartRodData(
+                        toY: rate,
+                        color: rate >= 80
+                            ? const Color(0xFF059669)
+                            : (rate >= 50
+                                  ? const Color(0xFFFF6712)
+                                  : const Color(0xFFDC2626)),
+                        width: 16,
+                        borderRadius: BorderRadius.circular(4),
+                        backDrawRodData: BackgroundBarChartRodData(
+                          show: true,
+                          toY: 100,
+                          color: widget.colors.surfaceVariant.withValues(
+                            alpha: 0.3,
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                }),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Session Quality Summary (Focused vs Distracted vs Incomplete)
+class _SessionQualityCard extends StatefulWidget {
+  final SessionsProvider sessions;
+  final dynamic colors;
+  final ThemeData theme;
+
+  const _SessionQualityCard({
+    required this.sessions,
+    required this.colors,
+    required this.theme,
+  });
+
+  @override
+  State<_SessionQualityCard> createState() => _SessionQualityCardState();
+}
+
+class _SessionQualityCardState extends State<_SessionQualityCard> {
+  int _monthOffset = 0; // 0 = current month
+
+  String _getPeriodLabel(DateTime d) {
+    const mNames = [
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
+    return '${mNames[d.month - 1]} ${d.year}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    // Calculate start/end of the selected month
+    final targetMonth = DateTime(now.year, now.month - _monthOffset, 1);
+    final nextMonth = DateTime(now.year, now.month - _monthOffset + 1, 1);
+
+    final relevantSessions = widget.sessions
+        .getSessionsInRange(targetMonth, nextMonth)
+        .where((s) => s.type == SessionType.focus)
+        .toList();
+
+    int focusedCount = 0;
+    int distractedCount = 0;
+    int incompleteCount = 0;
+
+    for (final s in relevantSessions) {
+      if (s.status == SessionStatus.completed) {
+        if (s.pauseCount >= 4 && !s.isDurationModified) {
+          distractedCount++;
+        } else {
+          focusedCount++;
+        }
+      } else {
+        incompleteCount++;
+      }
+    }
+
+    final total = focusedCount + distractedCount + incompleteCount;
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: widget.colors.surface,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header with Navigation
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _getPeriodLabel(targetMonth),
+                      style: widget.theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: widget.colors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Session Quality',
+                      style: widget.theme.textTheme.bodySmall?.copyWith(
+                        color: widget.colors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Row(
+                children: [
+                  IconButton(
+                    icon: Icon(
+                      Icons.chevron_left_rounded,
+                      color: widget.colors.textSecondary,
+                    ),
+                    onPressed: () => setState(() => _monthOffset++),
+                  ),
+                  IconButton(
+                    icon: Icon(
+                      Icons.chevron_right_rounded,
+                      color: _monthOffset == 0
+                          ? widget.colors.textSecondary.withValues(alpha: 0.3)
+                          : widget.colors.textSecondary,
+                    ),
+                    onPressed: _monthOffset == 0
+                        ? null
+                        : () => setState(() => _monthOffset--),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+
+          if (total == 0)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 24),
+                child: Text(
+                  'No sessions recorded',
+                  style: widget.theme.textTheme.bodyMedium?.copyWith(
+                    color: widget.colors.textSecondary,
+                  ),
+                ),
+              ),
+            )
+          else
+            Column(
+              children: [
+                _buildQualityRow(
+                  label: 'Deep Focus',
+                  count: focusedCount,
+                  total: total,
+                  color: const Color(0xFF059669), // Green
+                  icon: Icons.psychology_rounded,
+                  desc: 'Completed with < 4 pauses',
+                ),
+                const SizedBox(height: 16),
+                _buildQualityRow(
+                  label: 'Distracted',
+                  count: distractedCount,
+                  total: total,
+                  color: const Color(0xFFFF6712), // Orange
+                  icon: Icons.notifications_active_rounded,
+                  desc: 'Completed but frequent pauses',
+                ),
+                const SizedBox(height: 16),
+                _buildQualityRow(
+                  label: 'Incomplete',
+                  count: incompleteCount,
+                  total: total,
+                  color: const Color(0xFFDC2626), // Red
+                  icon: Icons.cancel_rounded,
+                  desc: 'Interrupted or skipped',
+                ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQualityRow({
+    required String label,
+    required int count,
+    required int total,
+    required Color color,
+    required IconData icon,
+    required String desc,
+  }) {
+    final percent = total > 0 ? count / total : 0.0;
+
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(icon, color: color, size: 20),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    label,
+                    style: widget.theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: widget.colors.textPrimary,
+                    ),
+                  ),
+                  Text(
+                    '$count',
+                    style: widget.theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: widget.colors.textPrimary,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Expanded(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                        value: percent,
+                        backgroundColor: widget.colors.surfaceVariant,
+                        color: color,
+                        minHeight: 4,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    '${(percent * 100).toInt()}%',
+                    style: widget.theme.textTheme.bodySmall?.copyWith(
+                      color: widget.colors.textSecondary,
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 2),
+              Text(
+                desc,
+                style: widget.theme.textTheme.bodySmall?.copyWith(
+                  color: widget.colors.textSecondary.withValues(alpha: 0.7),
+                  fontSize: 10,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

@@ -48,7 +48,7 @@ class TimerRing extends StatelessWidget {
               painter: _TimerArcPainter(
                 progress: progress,
                 primaryColor: colors.primary,
-                trackColor: colors.textSecondary.withOpacity(0.12),
+                trackColor: colors.textSecondary.withValues(alpha: 0.2),
                 strokeWidth: 18,
               ),
             ),

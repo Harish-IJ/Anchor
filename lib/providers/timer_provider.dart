@@ -40,6 +40,7 @@ class TimerProvider extends ChangeNotifier {
   TimerPhase get phase => _phase;
   TimerState get state => _state;
   int get remainingSeconds => _remainingSeconds;
+  int get elapsedSeconds => _elapsedSecondsThisSession;
   String? get projectId => _projectId;
 
   bool get isRunning => _state == TimerState.running;
@@ -84,9 +85,28 @@ class TimerProvider extends ChangeNotifier {
     _focusMinutes = focus;
     _breakMinutes = breakMins;
 
-    // Reset timer if idle
+    // Reset timer if idle, or adjust remaining if running/paused
     if (_state == TimerState.idle) {
       _remainingSeconds = totalSeconds;
+    } else {
+      // Live update: Recalculate remaining seconds based on new total
+      // Only meaningful if we are updating the current phase's duration
+      // If we are in Focus, and update Focus, we adjust.
+      // If we are in Focus, and update Break, no change to running timer.
+
+      // We already updated _focusMinutes/_breakMinutes above.
+      // So totalSeconds returns the NEW total.
+
+      if ((_phase == TimerPhase.focus) || (_phase == TimerPhase.shortBreak)) {
+        final newTotal = totalSeconds;
+        _remainingSeconds = newTotal - _elapsedSecondsThisSession;
+        if (_remainingSeconds < 0) _remainingSeconds = 0;
+
+        // If updating active focus session, reset pause count
+        if (_state != TimerState.idle && _phase == TimerPhase.focus) {
+          _sessionsProvider?.resetPauseCount();
+        }
+      }
     }
 
     notifyListeners();
@@ -242,8 +262,11 @@ class TimerProvider extends ChangeNotifier {
     _remainingSeconds = totalSeconds;
     _elapsedSecondsThisSession = 0;
     notifyListeners();
+  }
 
-    // TODO: Play sound / vibrate / notification
+  // Manual completion
+  void completeSession() {
+    _onTimerComplete();
   }
 
   /// Check if should suggest shorter timer (based on pause count)

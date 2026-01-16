@@ -33,8 +33,15 @@ class TimerSettingsSheet extends StatefulWidget {
     super.key,
     this.initialFocusMinutes = 25,
     this.initialBreakMinutes = 5,
+    this.minFocusMinutes = 5,
+    this.showMarkComplete = false,
     required this.onSave,
+    this.onComplete,
   });
+
+  final int minFocusMinutes;
+  final bool showMarkComplete;
+  final VoidCallback? onComplete;
 
   @override
   State<TimerSettingsSheet> createState() => _TimerSettingsSheetState();
@@ -47,7 +54,9 @@ class _TimerSettingsSheetState extends State<TimerSettingsSheet> {
   @override
   void initState() {
     super.initState();
-    _focusMinutes = widget.initialFocusMinutes;
+    _focusMinutes = widget.initialFocusMinutes < widget.minFocusMinutes
+        ? widget.minFocusMinutes
+        : widget.initialFocusMinutes;
     _breakMinutes = widget.initialBreakMinutes;
   }
 
@@ -79,7 +88,7 @@ class _TimerSettingsSheetState extends State<TimerSettingsSheet> {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: colors.textSecondary.withOpacity(0.3),
+                color: colors.textSecondary.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -104,7 +113,7 @@ class _TimerSettingsSheetState extends State<TimerSettingsSheet> {
                 child: _DurationPicker(
                   label: 'Focus',
                   value: _focusMinutes,
-                  minValue: 5,
+                  minValue: widget.minFocusMinutes,
                   maxValue: 90,
                   step: 5,
                   onChanged: (v) => setState(() => _focusMinutes = v),
@@ -200,6 +209,22 @@ class _TimerSettingsSheetState extends State<TimerSettingsSheet> {
               style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
             ),
           ),
+          // Complete button (conditional)
+          if (widget.showMarkComplete) ...[
+            const SizedBox(height: 12),
+            TextButton.icon(
+              onPressed: () {
+                widget.onComplete?.call();
+                Navigator.pop(context);
+              },
+              icon: const Icon(Icons.check_circle_outline_rounded),
+              label: const Text('Mark as Completed'),
+              style: TextButton.styleFrom(
+                foregroundColor: colors.primary,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -403,7 +428,10 @@ Future<void> showTimerSettings({
   required BuildContext context,
   required int focusMinutes,
   required int breakMinutes,
+  int minFocusMinutes = 5,
+  bool showMarkComplete = false,
   required void Function(int focus, int breakMins) onSave,
+  VoidCallback? onComplete,
 }) {
   return showModalBottomSheet(
     context: context,
@@ -412,7 +440,10 @@ Future<void> showTimerSettings({
     builder: (context) => TimerSettingsSheet(
       initialFocusMinutes: focusMinutes,
       initialBreakMinutes: breakMinutes,
+      minFocusMinutes: minFocusMinutes,
+      showMarkComplete: showMarkComplete,
       onSave: onSave,
+      onComplete: onComplete,
     ),
   );
 }

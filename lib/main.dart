@@ -13,6 +13,7 @@ import 'widgets/navigation_pill.dart';
 import 'pages/home_page.dart';
 import 'pages/stats_page.dart';
 import 'pages/settings_page.dart';
+import 'pages/splash_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -70,7 +71,7 @@ class AnchorApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'Anchor',
       theme: themeProvider.themeData,
-      home: const AppShell(),
+      home: const SplashScreen(),
     );
   }
 }

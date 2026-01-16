@@ -19,7 +19,7 @@ class Project {
   Map<String, dynamic> toJson() => {
     'id': id,
     'name': name,
-    'color': color.value,
+    'color': color.toARGB32(),
     'createdAt': createdAt.toIso8601String(),
   };
 
@@ -46,6 +46,7 @@ const List<Color> projectColors = [
 /// Provider for managing saved projects
 class ProjectsProvider extends ChangeNotifier {
   static const String _projectsKey = 'saved_projects';
+  static const int maxProjects = 15;
 
   List<Project> _projects = [];
 
@@ -71,6 +72,10 @@ class ProjectsProvider extends ChangeNotifier {
 
   /// Add a new project
   Future<void> addProject(String name, Color color) async {
+    if (_projects.length >= maxProjects) {
+      throw Exception('Maximum of $maxProjects projects allowed');
+    }
+
     final project = Project(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       name: name,

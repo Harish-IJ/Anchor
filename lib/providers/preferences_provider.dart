@@ -5,19 +5,37 @@ import 'package:shared_preferences/shared_preferences.dart';
 class PreferencesProvider extends ChangeNotifier {
   static const String _use24HourKey = 'use_24_hour_format';
   static const String _weekStartsSundayKey = 'week_starts_sunday';
+  static const String _userNameKey = 'user_name';
+  static const String _onboardingKey = 'onboarding_completed';
 
   bool _use24HourFormat = true; // Default: 24-hour
   bool _weekStartsSunday = true; // Default: Sunday
+  String? _userName;
+  bool _isOnboardingCompleted = false;
 
   bool get use24HourFormat => _use24HourFormat;
   bool get weekStartsSunday => _weekStartsSunday;
+  String? get userName => _userName;
+  bool get isOnboardingCompleted => _isOnboardingCompleted;
 
   /// Initialize from SharedPreferences
   Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
     _use24HourFormat = prefs.getBool(_use24HourKey) ?? true;
     _weekStartsSunday = prefs.getBool(_weekStartsSundayKey) ?? true;
+    _userName = prefs.getString(_userNameKey);
+    _isOnboardingCompleted = prefs.getBool(_onboardingKey) ?? false;
     notifyListeners();
+  }
+
+  /// Set user name and complete onboarding
+  Future<void> setUserName(String name) async {
+    _userName = name;
+    _isOnboardingCompleted = true; // Implicitly complete onboarding
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_userNameKey, name);
+    await prefs.setBool(_onboardingKey, true);
   }
 
   /// Toggle 12/24 hour format

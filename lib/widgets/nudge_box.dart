@@ -62,6 +62,18 @@ class NudgeCategories {
     NudgeItem(icon: Icons.directions_walk_rounded, text: "Stretch your legs"),
   ];
 
+  /// Suggested: Try shorter sessions (Focus > 25m, Pauses >= 4)
+  static const NudgeItem shorterSession = NudgeItem(
+    icon: Icons.timelapse_rounded,
+    text: "Session seems volatile. Try 25m?",
+  );
+
+  /// Suggested: Take a break (Pauses >= 4)
+  static const NudgeItem takeBreak = NudgeItem(
+    icon: Icons.free_breakfast_rounded,
+    text: "Feeling distracted? Take a break.",
+  );
+
   /// Get nudge based on completion percentage (0.0 - 1.0)
   static NudgeItem getNudgeForProgress(
     double progress, {
