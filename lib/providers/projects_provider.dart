@@ -113,4 +113,26 @@ class ProjectsProvider extends ChangeNotifier {
       return null;
     }
   }
+
+  /// Generate test projects (DEBUG ONLY)
+  Future<void> generateTestProjects() async {
+    final testProjects = [
+      ('Work', projectColors[0]), // Orange
+      ('Learning', projectColors[1]), // Cyan
+      ('Side Project', projectColors[2]), // Emerald
+      ('Reading', projectColors[3]), // Violet
+      ('Exercise', projectColors[4]), // Red
+    ];
+
+    for (final (name, color) in testProjects) {
+      // Check if project already exists
+      final exists = _projects.any((p) => p.name == name);
+      if (!exists) {
+        await addProject(name, color);
+      }
+    }
+  }
+
+  /// Get all project IDs
+  List<String> get projectIds => _projects.map((p) => p.id).toList();
 }

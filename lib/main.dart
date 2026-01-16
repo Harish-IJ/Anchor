@@ -6,6 +6,7 @@ import 'theme/theme_provider.dart';
 import 'providers/timer_provider.dart';
 import 'providers/projects_provider.dart';
 import 'providers/sessions_provider.dart';
+import 'providers/preferences_provider.dart';
 import 'models/focus_session.dart';
 import 'models/daily_summary.dart';
 import 'widgets/navigation_pill.dart';
@@ -38,6 +39,9 @@ void main() async {
   final sessionsProvider = SessionsProvider();
   await sessionsProvider.init();
 
+  final preferencesProvider = PreferencesProvider();
+  await preferencesProvider.init();
+
   // Connect timer to sessions for tracking
   timerProvider.setSessionsProvider(sessionsProvider);
 
@@ -48,6 +52,7 @@ void main() async {
         ChangeNotifierProvider.value(value: timerProvider),
         ChangeNotifierProvider.value(value: projectsProvider),
         ChangeNotifierProvider.value(value: sessionsProvider),
+        ChangeNotifierProvider.value(value: preferencesProvider),
       ],
       child: const AnchorApp(),
     ),

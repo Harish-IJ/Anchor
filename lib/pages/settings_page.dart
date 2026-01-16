@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import '../theme/theme_provider.dart';
+import '../providers/preferences_provider.dart';
 
 /// Settings page with theme selection
 class SettingsPage extends StatelessWidget {
@@ -11,12 +12,13 @@ class SettingsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final themeProvider = context.watch<ThemeProvider>();
+    final prefs = context.watch<PreferencesProvider>();
     final colors = themeProvider.colors;
 
     return Scaffold(
       backgroundColor: colors.background,
       body: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -147,6 +149,101 @@ class SettingsPage extends StatelessWidget {
 
               const SizedBox(height: 16),
 
+              // Display Preferences section
+              _SettingsCard(
+                title: 'Display',
+                icon: Icons.schedule_rounded,
+                colors: colors,
+                child: Column(
+                  children: [
+                    // Time format toggle
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Time Format',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: colors.textPrimary,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                        // Segmented time format selector
+                        Row(
+                          children: [
+                            _WeekStartButton(
+                              label: '12hr',
+                              isSelected: !prefs.use24HourFormat,
+                              onTap: () => prefs.setUse24HourFormat(false),
+                              colors: colors,
+                            ),
+                            const SizedBox(width: 4),
+                            _WeekStartButton(
+                              label: '24hr',
+                              isSelected: prefs.use24HourFormat,
+                              onTap: () => prefs.setUse24HourFormat(true),
+                              colors: colors,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // Week start toggle
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Week Starts On',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: colors.textPrimary,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              prefs.weekStartsSunday ? 'Sunday' : 'Monday',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: colors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                        // Custom segmented button
+                        Row(
+                          children: [
+                            _WeekStartButton(
+                              label: 'Sun',
+                              isSelected: prefs.weekStartsSunday,
+                              onTap: () => prefs.setWeekStartsSunday(true),
+                              colors: colors,
+                            ),
+                            const SizedBox(width: 4),
+                            _WeekStartButton(
+                              label: 'Mon',
+                              isSelected: !prefs.weekStartsSunday,
+                              onTap: () => prefs.setWeekStartsSunday(false),
+                              colors: colors,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
               // About section
               _SettingsCard(
                 title: 'About',
@@ -179,10 +276,8 @@ class SettingsPage extends StatelessWidget {
                 ),
               ),
 
-              const Spacer(),
-
               // Bottom padding for navigation pill
-              const SizedBox(height: 80),
+              const SizedBox(height: 100),
             ],
           ),
         ),
@@ -234,6 +329,44 @@ class _SettingsCard extends StatelessWidget {
           const SizedBox(height: 16),
           child,
         ],
+      ),
+    );
+  }
+}
+
+/// Small button for week start selection
+class _WeekStartButton extends StatelessWidget {
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+  final dynamic colors;
+
+  const _WeekStartButton({
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+    required this.colors,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? colors.primary : colors.surfaceVariant,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isSelected ? Colors.white : colors.textPrimary,
+            fontWeight: FontWeight.w500,
+            fontSize: 13,
+          ),
+        ),
       ),
     );
   }
