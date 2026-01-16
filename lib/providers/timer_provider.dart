@@ -146,11 +146,11 @@ class TimerProvider extends ChangeNotifier {
 
     _state = TimerState.running;
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      _remainingSeconds--;
+      _elapsedSecondsThisSession++;
       if (_remainingSeconds <= 0) {
         _onTimerComplete();
       } else {
-        _remainingSeconds--;
-        _elapsedSecondsThisSession++;
         notifyListeners();
       }
     });

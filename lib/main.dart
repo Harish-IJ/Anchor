@@ -21,11 +21,19 @@ void main() async {
   // Initialize Hive
   await Hive.initFlutter();
 
-  // Register Hive adapters
-  Hive.registerAdapter(SessionTypeAdapter());
-  Hive.registerAdapter(SessionStatusAdapter());
-  Hive.registerAdapter(FocusSessionAdapter());
-  Hive.registerAdapter(DailySummaryAdapter());
+  // Register Hive adapters (guarded to prevent errors on hot restart)
+  if (!Hive.isAdapterRegistered(0)) {
+    Hive.registerAdapter(SessionTypeAdapter());
+  }
+  if (!Hive.isAdapterRegistered(1)) {
+    Hive.registerAdapter(SessionStatusAdapter());
+  }
+  if (!Hive.isAdapterRegistered(2)) {
+    Hive.registerAdapter(FocusSessionAdapter());
+  }
+  if (!Hive.isAdapterRegistered(3)) {
+    Hive.registerAdapter(DailySummaryAdapter());
+  }
 
   // Initialize providers
   final themeProvider = ThemeProvider();

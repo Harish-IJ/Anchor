@@ -87,7 +87,13 @@ class FocusSession extends HiveObject {
   void complete({required int actualSeconds}) {
     endedAt = DateTime.now();
     actualDurationSeconds = actualSeconds;
-    completionPercentage = actualSeconds / plannedDurationSeconds;
+    final denominator = plannedDurationSeconds <= 0
+        ? 1
+        : plannedDurationSeconds;
+    completionPercentage = (actualSeconds / denominator).clamp(
+      0.0,
+      double.infinity,
+    );
     status = SessionStatus.completed;
   }
 
@@ -95,7 +101,13 @@ class FocusSession extends HiveObject {
   void interrupt({required int actualSeconds}) {
     endedAt = DateTime.now();
     actualDurationSeconds = actualSeconds;
-    completionPercentage = actualSeconds / plannedDurationSeconds;
+    final denominator = plannedDurationSeconds <= 0
+        ? 1
+        : plannedDurationSeconds;
+    completionPercentage = (actualSeconds / denominator).clamp(
+      0.0,
+      double.infinity,
+    );
     status = SessionStatus.interrupted;
   }
 

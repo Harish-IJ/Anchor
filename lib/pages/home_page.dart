@@ -25,6 +25,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage>
     with SingleTickerProviderStateMixin {
   late AnimationController _skipAnimationController;
+  TimerProvider? _timerProvider;
   bool _isSkipping = false;
   bool _wasRunningBeforeSkip = false;
   bool _shouldSkipAfterAnimation = false;
@@ -54,17 +55,17 @@ class _HomePageState extends State<HomePage>
     // Reset suggestion dismissal when timer state changes
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        context.read<TimerProvider>().addListener(_onTimerChanged);
+        _timerProvider = context.read<TimerProvider>();
+        _timerProvider!.addListener(_onTimerChanged);
       }
     });
   }
 
   void _onTimerChanged() {
-    if (!mounted) return;
-    final timer = context.read<TimerProvider>();
+    if (!mounted || _timerProvider == null) return;
     // Reset dismissal if timer is no longer idle (session started)
     // capable of showing suggestions again next time we are idle
-    if (!timer.isIdle && _isSuggestionDismissed) {
+    if (!_timerProvider!.isIdle && _isSuggestionDismissed) {
       setState(() {
         _isSuggestionDismissed = false;
       });
@@ -91,13 +92,7 @@ class _HomePageState extends State<HomePage>
   @override
   void dispose() {
     _skipAnimationController.dispose();
-    // Use read because we might be disposing, but context is still valid enough to reach provider?
-    // Actually, accessing context in dispose is risky if the widget is unmounted from tree.
-    // However, Provider usually handles this safely or throws if provider is gone.
-    // Best practice with Provider: save reference in initState?
-    // But Provider.of(context, listen: false) works in dispose usually if context is valid.
-    // Let's try.
-    context.read<TimerProvider>().removeListener(_onTimerChanged);
+    _timerProvider?.removeListener(_onTimerChanged);
     super.dispose();
   }
 

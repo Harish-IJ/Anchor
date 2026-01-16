@@ -19,7 +19,12 @@ class Project {
   Map<String, dynamic> toJson() => {
     'id': id,
     'name': name,
-    'color': color.toARGB32(),
+    // Manual ARGB calculation for SDK compatibility (toARGB32 requires Flutter 3.29+)
+    'color':
+        (color.alpha << 24) |
+        (color.red << 16) |
+        (color.green << 8) |
+        color.blue,
     'createdAt': createdAt.toIso8601String(),
   };
 

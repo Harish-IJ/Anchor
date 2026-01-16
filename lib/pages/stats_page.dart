@@ -141,16 +141,6 @@ class StatsPage extends StatelessWidget {
 
               const SizedBox(height: 20),
 
-              // Weekly Stacked Bar Chart with Incomplete Sessions
-              _WeeklyStackedBarChart(
-                sessions: sessions,
-                projects: projects,
-                colors: colors,
-                theme: theme,
-              ),
-
-              const SizedBox(height: 20),
-
               // Longest Session Card
               _LongestSessionCard(
                 sessions: sessions,
@@ -1263,6 +1253,7 @@ class _ProductivityHeatmap extends StatefulWidget {
 class _ProductivityHeatmapState extends State<_ProductivityHeatmap> {
   late int _selectedYear;
   final ScrollController _scrollController = ScrollController();
+  bool _hasAutoScrolled = false;
 
   @override
   void initState() {
@@ -1359,11 +1350,12 @@ class _ProductivityHeatmapState extends State<_ProductivityHeatmap> {
 
     final weekdayLabels = widget.prefs.weekdayLabels;
 
-    // Scroll to end for current year
-    if (isCurrentYear) {
+    // Scroll to end for current year (only once per year view)
+    if (isCurrentYear && !_hasAutoScrolled) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (_scrollController.hasClients) {
           _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+          _hasAutoScrolled = true;
         }
       });
     }
@@ -1398,7 +1390,12 @@ class _ProductivityHeatmapState extends State<_ProductivityHeatmap> {
               Row(
                 children: [
                   IconButton(
-                    onPressed: () => setState(() => _selectedYear--),
+                    onPressed: () {
+                      setState(() {
+                        _selectedYear--;
+                        _hasAutoScrolled = false;
+                      });
+                    },
                     icon: Icon(
                       Icons.chevron_left_rounded,
                       color: widget.colors.textSecondary,
@@ -1420,7 +1417,12 @@ class _ProductivityHeatmapState extends State<_ProductivityHeatmap> {
                   IconButton(
                     onPressed: isCurrentYear
                         ? null
-                        : () => setState(() => _selectedYear++),
+                        : () {
+                            setState(() {
+                              _selectedYear++;
+                              _hasAutoScrolled = false;
+                            });
+                          },
                     icon: Icon(
                       Icons.chevron_right_rounded,
                       color: isCurrentYear

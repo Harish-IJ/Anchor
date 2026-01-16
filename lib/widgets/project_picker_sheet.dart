@@ -113,16 +113,21 @@ class _ProjectPickerSheetState extends State<ProjectPickerSheet> {
           ),
           TextButton(
             onPressed: () async {
+              final projectsProvider = context.read<ProjectsProvider>();
+              final currentProjectId = widget.currentProjectId;
+              final onClear = widget.onClear;
               Navigator.pop(ctx);
-              if (project.id == widget.currentProjectId) {
-                widget.onClear();
+              if (project.id == currentProjectId) {
+                onClear();
               }
-              await context.read<ProjectsProvider>().deleteProject(project.id);
+              await projectsProvider.deleteProject(project.id);
               // Reset to list view after deletion
-              setState(() {
-                _isEditing = false;
-                _editingProject = null;
-              });
+              if (mounted) {
+                setState(() {
+                  _isEditing = false;
+                  _editingProject = null;
+                });
+              }
             },
             child: const Text('Delete', style: TextStyle(color: Colors.red)),
           ),
@@ -562,7 +567,7 @@ class _ProjectPickerSheetState extends State<ProjectPickerSheet> {
             ),
           ),
         );
-      }, childCount: projects.length),
+      }, childCount: sortedProjects.length + 1),
     );
   }
 }

@@ -90,7 +90,11 @@ class SessionsProvider extends ChangeNotifier {
 
   /// Save session to Hive
   Future<void> _saveSession(FocusSession session) async {
-    await _box?.put(session.id, session);
+    final box = _box;
+    if (box == null) {
+      throw StateError('SessionsProvider not initialized. Call init() first.');
+    }
+    await box.put(session.id, session);
   }
 
   /// Get all sessions
@@ -103,14 +107,14 @@ class SessionsProvider extends ChangeNotifier {
     final now = DateTime.now();
     final startOfDay = DateTime(now.year, now.month, now.day);
     return getAllSessions()
-        .where((s) => s.startedAt.isAfter(startOfDay))
+        .where((s) => !s.startedAt.isBefore(startOfDay))
         .toList();
   }
 
-  /// Get sessions for date range
+  /// Get sessions for date range (inclusive start, exclusive end)
   List<FocusSession> getSessionsInRange(DateTime start, DateTime end) {
     return getAllSessions()
-        .where((s) => s.startedAt.isAfter(start) && s.startedAt.isBefore(end))
+        .where((s) => !s.startedAt.isBefore(start) && s.startedAt.isBefore(end))
         .toList();
   }
 
@@ -221,6 +225,8 @@ class SessionsProvider extends ChangeNotifier {
         .where((s) => s.type == SessionType.focus)
         .toList();
     if (sessions.isEmpty) return false;
+    // Sort by startedAt to get chronologically latest session
+    sessions.sort((a, b) => a.startedAt.compareTo(b.startedAt));
     return sessions.last.shouldSuggestShorterTimer;
   }
 

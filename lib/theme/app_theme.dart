@@ -28,7 +28,7 @@ class AnchorColors {
   /// Lighter variant of primary for backgrounds
   Color get primaryLight {
     if (isDark) {
-      return primary.withValues(alpha: 0.15);
+      return primary.withOpacity(0.15);
     }
     switch (theme) {
       case AnchorTheme.defaultOrange:

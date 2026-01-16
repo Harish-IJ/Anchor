@@ -57,13 +57,13 @@ class _TimerSettingsSheetState extends State<TimerSettingsSheet> {
     _focusMinutes = widget.initialFocusMinutes < widget.minFocusMinutes
         ? widget.minFocusMinutes
         : widget.initialFocusMinutes;
-    _breakMinutes = widget.initialBreakMinutes;
+    _breakMinutes = widget.initialBreakMinutes.clamp(3, 30);
   }
 
   void _selectPreset(TimerPreset preset) {
     setState(() {
-      _focusMinutes = preset.focusMinutes;
-      _breakMinutes = preset.breakMinutes;
+      _focusMinutes = preset.focusMinutes.clamp(widget.minFocusMinutes, 90);
+      _breakMinutes = preset.breakMinutes.clamp(3, 30);
     });
   }
 
@@ -312,6 +312,7 @@ class _DurationPickerState extends State<_DurationPicker> {
   }
 
   void _startLongPress(bool increment) {
+    _timer?.cancel(); // Prevent orphaned timers
     _incrementCount = 0;
     _timer = Timer.periodic(const Duration(milliseconds: 150), (_) {
       if (increment) {

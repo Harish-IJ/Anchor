@@ -115,7 +115,6 @@ class _NavItemState extends State<_NavItem>
 
   void _handleTapUp(TapUpDetails details) {
     _controller.reverse();
-    widget.onTap();
   }
 
   void _handleTapCancel() {
@@ -130,6 +129,7 @@ class _NavItemState extends State<_NavItem>
       onTapDown: _handleTapDown,
       onTapUp: _handleTapUp,
       onTapCancel: _handleTapCancel,
+      onTap: widget.onTap,
       child: ScaleTransition(
         scale: _scaleAnimation,
         child: AnimatedContainer(

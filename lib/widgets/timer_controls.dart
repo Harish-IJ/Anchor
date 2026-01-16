@@ -68,6 +68,7 @@ class TimerControls extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.watch<ThemeProvider>().colors;
     final timer = context.watch<TimerProvider>();
+    final canResetEffective = canReset && onReset != null;
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -75,7 +76,7 @@ class TimerControls extends StatelessWidget {
         // Reset button
         _ControlButton(
           icon: Icons.refresh_rounded,
-          onTap: canReset ? () => _confirmReset(context) : null,
+          onTap: canResetEffective ? () => _confirmReset(context) : null,
           color: colors.textSecondary,
           backgroundColor: colors.surfaceVariant,
         ),

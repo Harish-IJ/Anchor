@@ -20,7 +20,7 @@ class TimerRing extends StatelessWidget {
 
   double get progress {
     if (totalSeconds == 0) return 0;
-    return (totalSeconds - remainingSeconds) / totalSeconds;
+    return ((totalSeconds - remainingSeconds) / totalSeconds).clamp(0.0, 1.0);
   }
 
   String get timeDisplay {

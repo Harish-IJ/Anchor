@@ -4,7 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'app_theme.dart';
 
 /// Provider for managing theme state with persistence
-class ThemeProvider extends ChangeNotifier {
+class ThemeProvider extends ChangeNotifier with WidgetsBindingObserver {
   static const String _themeKey = 'anchor_theme';
   static const String _themeModeKey = 'anchor_theme_mode';
 
@@ -47,7 +47,24 @@ class ThemeProvider extends ChangeNotifier {
     _themeMode = AnchorThemeMode
         .values[modeIndex.clamp(0, AnchorThemeMode.values.length - 1)];
 
+    // Register for platform brightness changes
+    WidgetsBinding.instance.addObserver(this);
+
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangePlatformBrightness() {
+    // Only rebuild when in system mode
+    if (_themeMode == AnchorThemeMode.system) {
+      notifyListeners();
+    }
   }
 
   /// Set new color theme and persist
