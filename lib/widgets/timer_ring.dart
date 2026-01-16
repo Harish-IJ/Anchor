@@ -168,6 +168,8 @@ class _TimerArcPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _TimerArcPainter oldDelegate) {
     return oldDelegate.progress != progress ||
-        oldDelegate.primaryColor != primaryColor;
+        oldDelegate.primaryColor != primaryColor ||
+        oldDelegate.trackColor != trackColor ||
+        oldDelegate.strokeWidth != strokeWidth;
   }
 }

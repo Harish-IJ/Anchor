@@ -91,8 +91,17 @@ class ProjectsProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     final jsonString = prefs.getString(_projectsKey);
     if (jsonString != null) {
-      final List<dynamic> jsonList = json.decode(jsonString);
-      _projects = jsonList.map((j) => Project.fromJson(j)).toList();
+      try {
+        final List<dynamic> jsonList = json.decode(jsonString);
+        _projects = jsonList
+            .whereType<Map<String, dynamic>>()
+            .map((j) => Project.fromJson(j))
+            .toList();
+      } catch (_) {
+        // Clear corrupted data and start fresh
+        _projects = [];
+        await prefs.remove(_projectsKey);
+      }
       notifyListeners();
     }
   }

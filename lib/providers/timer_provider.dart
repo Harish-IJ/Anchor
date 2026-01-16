@@ -250,11 +250,11 @@ class TimerProvider extends ChangeNotifier {
 
       _state = TimerState.running;
       _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+        _remainingSeconds--;
+        _elapsedSecondsThisSession++;
         if (_remainingSeconds <= 0) {
           _onTimerComplete();
         } else {
-          _remainingSeconds--;
-          _elapsedSecondsThisSession++;
           notifyListeners();
         }
       });
@@ -269,8 +269,12 @@ class TimerProvider extends ChangeNotifier {
   void _onTimerComplete() {
     _timer?.cancel();
 
-    // Complete the session
-    _sessionsProvider?.completeSession(actualSeconds: totalSeconds);
+    // Complete the session with actual elapsed time
+    _sessionsProvider?.completeSession(
+      actualSeconds: _elapsedSecondsThisSession > 0
+          ? _elapsedSecondsThisSession
+          : totalSeconds,
+    );
 
     _state = TimerState.idle;
 

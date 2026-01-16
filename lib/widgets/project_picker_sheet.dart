@@ -71,6 +71,7 @@ class _ProjectPickerSheetState extends State<ProjectPickerSheet> {
     if (name.isEmpty) return;
 
     final projectsProvider = context.read<ProjectsProvider>();
+    final wasEditing = _isEditing;
 
     if (_isEditing && _editingProject != null) {
       await projectsProvider.updateProject(
@@ -80,10 +81,14 @@ class _ProjectPickerSheetState extends State<ProjectPickerSheet> {
       );
     } else {
       await projectsProvider.addProject(name, _selectedColor);
+    }
+
+    if (!mounted) return;
+
+    if (!wasEditing) {
       final newProject = projectsProvider.projects.first;
       widget.onSelect(newProject);
     }
-
     _cancelForm();
   }
 
@@ -312,7 +317,8 @@ class _ProjectPickerSheetState extends State<ProjectPickerSheet> {
             spacing: 12,
             runSpacing: 12,
             children: projectColors.map((color) {
-              final isSelected = _selectedColor.toARGB32() == color.toARGB32();
+              // Use value comparison for SDK compatibility (toARGB32 requires Flutter 3.29+)
+              final isSelected = _selectedColor.value == color.value;
               return GestureDetector(
                 onTap: () => setState(() => _selectedColor = color),
                 child: AnimatedContainer(
