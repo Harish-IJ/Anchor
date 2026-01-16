@@ -1,7 +1,22 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// User display preferences provider
+/// Manages user display preferences and onboarding state.
+///
+/// This provider handles:
+/// - Time format preference (12-hour vs 24-hour display)
+/// - Week start day preference (Sunday vs Monday)
+/// - User name storage (from onboarding)
+/// - Onboarding completion tracking
+///
+/// ## Persistence
+/// All preferences are stored in SharedPreferences and loaded via `init()`.
+///
+/// ## Usage
+/// ```dart
+/// final prefs = context.watch<PreferencesProvider>();
+/// prefs.formatHour(14); // Returns "14:00" or "2PM" based on setting
+/// ```
 class PreferencesProvider extends ChangeNotifier {
   static const String _use24HourKey = 'use_24_hour_format';
   static const String _weekStartsSundayKey = 'week_starts_sunday';

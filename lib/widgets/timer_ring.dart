@@ -3,11 +3,27 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../theme/theme_provider.dart';
 
-/// Circular timer ring with arc progress indicator and endpoint dot
+/// A circular timer ring with arc progress indicator.
+///
+/// Displays the remaining time as a countdown and shows progress
+/// as a filled arc around the circle with an endpoint dot.
+///
+/// ## Visual Components
+/// - Background track (subtle gray ring)
+/// - Progress arc (themed primary color)
+/// - Endpoint dot (indicates current position)
+/// - Centered time display (MM:SS format)
 class TimerRing extends StatelessWidget {
+  /// Total duration of the timer phase in seconds.
   final int totalSeconds;
+
+  /// Remaining seconds on the countdown.
   final int remainingSeconds;
+
+  /// Whether the timer is currently running (affects animations).
   final bool isRunning;
+
+  /// Optional tap handler for timer interaction.
   final VoidCallback? onTap;
 
   const TimerRing({

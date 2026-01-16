@@ -2,11 +2,25 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Project model
+/// A user-defined project for categorizing focus sessions.
+///
+/// Projects allow users to track time spent on different activities.
+/// Each project has a unique color for visual identification.
+///
+/// ## Serialization
+/// Uses manual ARGB calculation for color serialization to maintain
+/// SDK compatibility with Flutter versions prior to 3.29.
 class Project {
+  /// Unique identifier (UUID).
   final String id;
+
+  /// User-defined project name.
   final String name;
+
+  /// Visual color for the project (shown as a dot indicator).
   final Color color;
+
+  /// Timestamp when the project was created.
   final DateTime createdAt;
 
   Project({
@@ -16,6 +30,7 @@ class Project {
     DateTime? createdAt,
   }) : createdAt = createdAt ?? DateTime.now();
 
+  /// Serializes the project to a JSON-compatible map.
   Map<String, dynamic> toJson() => {
     'id': id,
     'name': name,
@@ -28,6 +43,7 @@ class Project {
     'createdAt': createdAt.toIso8601String(),
   };
 
+  /// Creates a project from a JSON map.
   factory Project.fromJson(Map<String, dynamic> json) => Project(
     id: json['id'] as String,
     name: json['name'] as String,
@@ -36,7 +52,9 @@ class Project {
   );
 }
 
-/// Available project colors
+/// Predefined color palette for new projects.
+///
+/// These colors are chosen for visual distinction and accessibility.
 const List<Color> projectColors = [
   Color(0xFFFF6712), // Orange
   Color(0xFF0891B2), // Cyan
@@ -48,7 +66,18 @@ const List<Color> projectColors = [
   Color(0xFF84CC16), // Lime
 ];
 
-/// Provider for managing saved projects
+/// Manages user-defined projects for session categorization.
+///
+/// This provider handles:
+/// - CRUD operations for projects (create, read, update, delete)
+/// - Persistence to SharedPreferences
+/// - Project limit enforcement (max 15 projects)
+///
+/// ## Usage
+/// ```dart
+/// final provider = context.read<ProjectsProvider>();
+/// await provider.addProject('Work', Colors.blue);
+/// ```
 class ProjectsProvider extends ChangeNotifier {
   static const String _projectsKey = 'saved_projects';
   static const int maxProjects = 15;

@@ -2,7 +2,10 @@ import 'package:hive/hive.dart';
 
 part 'focus_session.g.dart';
 
-/// Type of timer session
+/// The type of timer session.
+///
+/// - [focus]: A focused work session (e.g., 25 minutes)
+/// - [shortBreak]: A short break between focus sessions (e.g., 5 minutes)
 @HiveType(typeId: 0)
 enum SessionType {
   @HiveField(0)
@@ -12,7 +15,11 @@ enum SessionType {
   shortBreak,
 }
 
-/// Status of a completed session
+/// The outcome status of a completed session.
+///
+/// - [completed]: Session ran to full planned duration
+/// - [interrupted]: Session was reset/stopped before completion
+/// - [skipped]: Session was skipped to move to next phase
 @HiveType(typeId: 1)
 enum SessionStatus {
   @HiveField(0)
@@ -25,7 +32,18 @@ enum SessionStatus {
   skipped,
 }
 
-/// A focus or break session record
+/// A persisted record of a focus or break session.
+///
+/// This model is stored in Hive and tracks all aspects of a session:
+/// - Duration (planned vs actual)
+/// - Timing (start/end timestamps)
+/// - Status (completed, interrupted, skipped)
+/// - Associated project (optional)
+/// - Pause count (for nudge suggestions)
+///
+/// ## State Transitions
+/// Sessions are created via [SessionsProvider.startSession] and finalized
+/// via [complete], [interrupt], or [skip] methods.
 @HiveType(typeId: 2)
 class FocusSession extends HiveObject {
   @HiveField(0)

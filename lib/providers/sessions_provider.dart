@@ -3,7 +3,23 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:uuid/uuid.dart';
 import '../models/focus_session.dart';
 
-/// Provider for managing focus session data
+/// Manages focus session data persistence and lifecycle.
+///
+/// This provider handles:
+/// - Creating and tracking focus/break sessions
+/// - Persisting session data to local storage (Hive)
+/// - Session state transitions (start, pause, complete, interrupt, skip)
+/// - Historical session queries for statistics
+/// - Project-based session prediction
+///
+/// ## Session Lifecycle
+/// 1. `startSession()` - Creates new session when timer starts
+/// 2. `recordPause()` - Tracks pauses for nudge suggestions
+/// 3. `completeSession()` / `interruptSession()` / `skipSession()` - Finalizes session
+///
+/// ## Data Storage
+/// Sessions are stored in a Hive box named 'focus_sessions'.
+/// The box must be initialized via `init()` before use.
 class SessionsProvider extends ChangeNotifier {
   static const String _boxName = 'focus_sessions';
   Box<FocusSession>? _box;

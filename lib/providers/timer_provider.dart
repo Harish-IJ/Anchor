@@ -4,13 +4,35 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/focus_session.dart';
 import 'sessions_provider.dart';
 
-/// Timer phases (simplified - no long break)
+/// The two phases a timer can be in.
+///
+/// The app uses a simplified Pomodoro-style flow without long breaks.
 enum TimerPhase { focus, shortBreak }
 
-/// Timer states
+/// The possible states of the timer.
 enum TimerState { idle, running, paused }
 
-/// Provider for managing timer state
+/// Manages the Pomodoro-style focus timer state and logic.
+///
+/// This provider handles:
+/// - Timer countdown (focus and break phases)
+/// - Session tracking integration with [SessionsProvider]
+/// - Persistence of timer duration preferences
+/// - Project association for sessions
+///
+/// ## Usage
+/// ```dart
+/// final timer = context.watch<TimerProvider>();
+/// timer.togglePlayPause();
+/// ```
+///
+/// ## State Flow
+/// - **Idle**: Timer is not running, ready to start
+/// - **Running**: Timer is counting down
+/// - **Paused**: Timer is paused mid-session
+///
+/// ## Phase Flow
+/// Focus → Break → Focus → Break (alternating)
 class TimerProvider extends ChangeNotifier {
   static const String _focusKey = 'timer_focus_minutes';
   static const String _breakKey = 'timer_break_minutes';

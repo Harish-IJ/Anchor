@@ -3,7 +3,23 @@ import 'package:flutter/scheduler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'app_theme.dart';
 
-/// Provider for managing theme state with persistence
+/// Manages application theming with persistence and system theme detection.
+///
+/// This provider handles:
+/// - Color theme selection (Orange, Blue, Green)
+/// - Theme mode (Light, Dark, System)
+/// - Automatic system brightness change detection via [WidgetsBindingObserver]
+/// - Persistence to SharedPreferences
+///
+/// ## Reactive Updates
+/// When in system mode, the provider listens for platform brightness changes
+/// and automatically rebuilds the UI when the OS theme toggles.
+///
+/// ## Usage
+/// ```dart
+/// final colors = context.watch<ThemeProvider>().colors;
+/// final theme = context.watch<ThemeProvider>().themeData;
+/// ```
 class ThemeProvider extends ChangeNotifier with WidgetsBindingObserver {
   static const String _themeKey = 'anchor_theme';
   static const String _themeModeKey = 'anchor_theme_mode';

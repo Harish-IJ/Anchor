@@ -3,16 +3,42 @@ import 'package:provider/provider.dart';
 import '../theme/theme_provider.dart';
 import '../providers/timer_provider.dart';
 
-/// Timer control buttons: Reset, Play/Pause, Skip
+/// Timer control buttons: Reset, Play/Pause, and Skip.
+///
+/// Displays three circular buttons for controlling the timer:
+/// - **Reset**: Resets timer to beginning (with confirmation dialog)
+/// - **Play/Pause**: Toggles timer running state
+/// - **Skip**: Long-press to skip to next phase (with progress indicator)
+///
+/// ## Skip Gesture
+/// The skip button uses a long-press gesture with visual progress
+/// feedback to prevent accidental skips.
 class TimerControls extends StatelessWidget {
+  /// Whether the timer is currently running.
   final bool isRunning;
+
+  /// Whether the timer is in idle state (not started).
   final bool isIdle;
+
+  /// Whether the reset button should be enabled.
   final bool canReset;
+
+  /// Callback for play/pause button press.
   final VoidCallback? onPlayPause;
+
+  /// Callback for reset confirmation.
   final VoidCallback? onReset;
+
+  /// Callback for skip tap (not long-press).
   final VoidCallback? onSkipTap;
+
+  /// Callback when skip long-press starts.
   final VoidCallback? onSkipStart;
+
+  /// Callback when skip long-press ends.
   final VoidCallback? onSkipEnd;
+
+  /// Progress of skip long-press (0.0 to 1.0).
   final double skipProgress;
 
   const TimerControls({
