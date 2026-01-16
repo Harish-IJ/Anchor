@@ -1,30 +1,84 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:provider/provider.dart';
 
 import 'package:anchor/main.dart';
+import 'package:anchor/theme/theme_provider.dart';
+import 'package:anchor/providers/timer_provider.dart';
+import 'package:anchor/providers/sessions_provider.dart';
+import 'package:anchor/providers/projects_provider.dart';
+import 'package:anchor/providers/preferences_provider.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  testWidgets('App renders AppShell with navigation', (
+    WidgetTester tester,
+  ) async {
+    // Create all required providers
+    final themeProvider = ThemeProvider();
+    final sessionsProvider = SessionsProvider();
+    final timerProvider = TimerProvider();
+    final projectsProvider = ProjectsProvider();
+    final preferencesProvider = PreferencesProvider();
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider.value(value: themeProvider),
+          ChangeNotifierProvider.value(value: sessionsProvider),
+          ChangeNotifierProvider.value(value: timerProvider),
+          ChangeNotifierProvider.value(value: projectsProvider),
+          ChangeNotifierProvider.value(value: preferencesProvider),
+        ],
+        // Test AppShell directly to bypass splash screen
+        child: MaterialApp(
+          home: const AppShell(),
+          theme: themeProvider.themeData,
+        ),
+      ),
+    );
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+    await tester.pumpAndSettle();
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    // Verify navigation icons exist
+    expect(find.byIcon(Icons.home_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.bar_chart_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.settings_rounded), findsOneWidget);
+  });
+
+  testWidgets('Navigation switches pages', (WidgetTester tester) async {
+    // Create all required providers
+    final themeProvider = ThemeProvider();
+    final sessionsProvider = SessionsProvider();
+    final timerProvider = TimerProvider();
+    final projectsProvider = ProjectsProvider();
+    final preferencesProvider = PreferencesProvider();
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider.value(value: themeProvider),
+          ChangeNotifierProvider.value(value: sessionsProvider),
+          ChangeNotifierProvider.value(value: timerProvider),
+          ChangeNotifierProvider.value(value: projectsProvider),
+          ChangeNotifierProvider.value(value: preferencesProvider),
+        ],
+        child: MaterialApp(
+          home: const AppShell(),
+          theme: themeProvider.themeData,
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    // Tap stats icon
+    await tester.tap(find.byIcon(Icons.bar_chart_rounded));
+    await tester.pumpAndSettle();
+
+    // Tap settings icon
+    await tester.tap(find.byIcon(Icons.settings_rounded));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Settings'), findsOneWidget);
   });
 }
