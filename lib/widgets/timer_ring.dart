@@ -40,8 +40,9 @@ class TimerRing extends StatelessWidget {
   }
 
   String get timeDisplay {
-    final minutes = (remainingSeconds ~/ 60).toString().padLeft(2, '0');
-    final seconds = (remainingSeconds % 60).toString().padLeft(2, '0');
+    final safeSeconds = remainingSeconds < 0 ? 0 : remainingSeconds;
+    final minutes = (safeSeconds ~/ 60).toString().padLeft(2, '0');
+    final seconds = (safeSeconds % 60).toString().padLeft(2, '0');
     return '$minutes:$seconds';
   }
 
