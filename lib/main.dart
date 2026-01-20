@@ -13,7 +13,7 @@ import 'widgets/navigation_pill.dart';
 import 'pages/home_page.dart';
 import 'pages/stats_page.dart';
 import 'pages/settings_page.dart';
-import 'pages/splash_screen.dart';
+import 'pages/onboarding_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -74,12 +74,16 @@ class AnchorApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final themeProvider = context.watch<ThemeProvider>();
+    final prefs = context.watch<PreferencesProvider>();
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Anchor',
       theme: themeProvider.themeData,
-      home: const SplashScreen(),
+      // Go directly to AppShell or OnboardingPage (no splash screen)
+      home: prefs.isOnboardingCompleted
+          ? const AppShell()
+          : const OnboardingPage(),
     );
   }
 }

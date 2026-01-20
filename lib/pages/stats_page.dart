@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../theme/theme_provider.dart';
+import '../theme/app_theme.dart';
 import '../providers/sessions_provider.dart';
 import '../providers/projects_provider.dart';
 import '../providers/preferences_provider.dart';
@@ -143,6 +144,15 @@ class StatsPage extends StatelessWidget {
 
               // Longest Session Card
               _LongestSessionCard(
+                sessions: sessions,
+                colors: colors,
+                theme: theme,
+              ),
+
+              const SizedBox(height: 20),
+
+              // Distracted Sessions Card
+              _DistractedSessionsCard(
                 sessions: sessions,
                 colors: colors,
                 theme: theme,
@@ -861,6 +871,264 @@ class _LongestSessionCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Distracted Sessions Card - tracks sessions with high pause counts
+///
+/// A session is considered "distracted" if it has 4+ pauses and the
+/// duration wasn't manually modified (to exclude intentional adjustments).
+class _DistractedSessionsCard extends StatelessWidget {
+  final SessionsProvider sessions;
+  final AnchorColors colors;
+  final ThemeData theme;
+
+  const _DistractedSessionsCard({
+    required this.sessions,
+    required this.colors,
+    required this.theme,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+
+    // Get last 30 days of focus sessions
+    final startDate = now.subtract(const Duration(days: 30));
+    final allSessions = sessions
+        .getSessionsInRange(startDate, now.add(const Duration(days: 1)))
+        .where(
+          (s) =>
+              s.type == SessionType.focus &&
+              s.status == SessionStatus.completed,
+        )
+        .toList();
+
+    // Distracted = 4+ pauses and not manually modified
+    final distractedSessions = allSessions
+        .where((s) => s.pauseCount >= 4 && !s.isDurationModified)
+        .toList();
+
+    // Get this week's stats
+    final weekStart = now.subtract(Duration(days: now.weekday - 1));
+    final thisWeekSessions = allSessions
+        .where(
+          (s) => !s.startedAt.isBefore(
+            DateTime(weekStart.year, weekStart.month, weekStart.day),
+          ),
+        )
+        .toList();
+    final thisWeekDistracted = thisWeekSessions
+        .where((s) => s.pauseCount >= 4 && !s.isDurationModified)
+        .length;
+
+    // Calculate distraction rate
+    final distractionRate = allSessions.isEmpty
+        ? 0.0
+        : (distractedSessions.length / allSessions.length * 100);
+
+    // Average pause count in distracted sessions
+    final avgPauses = distractedSessions.isEmpty
+        ? 0.0
+        : distractedSessions.fold<int>(0, (sum, s) => sum + s.pauseCount) /
+              distractedSessions.length;
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.running_with_errors_rounded,
+                  color: Colors.orange,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Focus Quality',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: colors.textPrimary,
+                      ),
+                    ),
+                    Text(
+                      'Last 30 days',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 20),
+
+          // Stats row
+          Row(
+            children: [
+              // Distracted count
+              Expanded(
+                child: _QualityStatTile(
+                  label: 'Distracted',
+                  value: '${distractedSessions.length}',
+                  subtitle: 'of ${allSessions.length} sessions',
+                  colors: colors,
+                  theme: theme,
+                  valueColor: distractedSessions.isEmpty
+                      ? colors.primary
+                      : Colors.orange,
+                ),
+              ),
+
+              // Distraction rate
+              Expanded(
+                child: _QualityStatTile(
+                  label: 'Rate',
+                  value: '${distractionRate.toStringAsFixed(0)}%',
+                  subtitle: distractionRate < 20
+                      ? 'Great focus!'
+                      : distractionRate < 40
+                      ? 'Could improve'
+                      : 'Needs attention',
+                  colors: colors,
+                  theme: theme,
+                  valueColor: distractionRate < 20
+                      ? colors.primary
+                      : distractionRate < 40
+                      ? Colors.orange
+                      : Colors.redAccent,
+                ),
+              ),
+
+              // This week
+              Expanded(
+                child: _QualityStatTile(
+                  label: 'This Week',
+                  value: '$thisWeekDistracted',
+                  subtitle: avgPauses > 0
+                      ? '~${avgPauses.toStringAsFixed(1)} pauses'
+                      : 'avg pauses',
+                  colors: colors,
+                  theme: theme,
+                  valueColor: thisWeekDistracted == 0
+                      ? colors.primary
+                      : Colors.orange,
+                ),
+              ),
+            ],
+          ),
+
+          // Tip if there are distracted sessions
+          if (distractedSessions.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: colors.surfaceVariant,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.lightbulb_outline_rounded,
+                    size: 18,
+                    color: colors.textSecondary,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      avgPauses >= 6
+                          ? 'Try shorter focus sessions to maintain concentration'
+                          : 'Consider removing distractions before starting',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colors.textSecondary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Stat tile for the quality card
+class _QualityStatTile extends StatelessWidget {
+  final String label;
+  final String value;
+  final String subtitle;
+  final AnchorColors colors;
+  final ThemeData theme;
+  final Color? valueColor;
+
+  const _QualityStatTile({
+    required this.label,
+    required this.value,
+    required this.subtitle,
+    required this.colors,
+    required this.theme,
+    this.valueColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(
+          label,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: colors.textSecondary,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: theme.textTheme.headlineSmall?.copyWith(
+            fontWeight: FontWeight.w700,
+            color: valueColor ?? colors.textPrimary,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          subtitle,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: colors.textSecondary,
+            fontSize: 10,
+          ),
+          textAlign: TextAlign.center,
+        ),
+      ],
     );
   }
 }
@@ -2074,8 +2342,9 @@ class _TrendAreaChartState extends State<_TrendAreaChart> {
                       interval: 1,
                       getTitlesWidget: (value, meta) {
                         final index = value.toInt();
-                        if (index < 0 || index >= monthLabels.length)
+                        if (index < 0 || index >= monthLabels.length) {
                           return const SizedBox();
+                        }
 
                         // Sparse labels for 9 and 12 months
                         // Show at least 5 labels. For 12 months, every 2nd is 6 labels.
@@ -2322,8 +2591,9 @@ class _CompletionRateChartState extends State<_CompletionRateChart> {
                       showTitles: true,
                       getTitlesWidget: (value, meta) {
                         final index = value.toInt();
-                        if (index < 0 || index >= data.length)
+                        if (index < 0 || index >= data.length) {
                           return const SizedBox();
+                        }
                         return Padding(
                           padding: const EdgeInsets.only(top: 8),
                           child: Text(
