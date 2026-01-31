@@ -4,15 +4,7 @@ export default function SettingsPage() {
   return (
     <main>
       <Layout>
-        <div className='flex flex-1 flex-col gap-6 p-4 pt-0 max-w-4xl'>
-          {/* Header */}
-          <div>
-            <h1 className='text-2xl font-bold'>Settings</h1>
-            <p className='text-muted-foreground'>
-              Customize your Anchor experience
-            </p>
-          </div>
-
+        <div className='flex flex-1 flex-col gap-6 p-4 pt-0 max-w-4xl mx-auto w-full'>
           {/* Settings Sections */}
           <div className='space-y-6'>
             {/* General */}

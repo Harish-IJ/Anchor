@@ -122,14 +122,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                       "relative transition-all duration-200",
                       isActive && "bg-white/20 text-white",
                     )}>
-                    <Link href={item.url}>
-                      <div
-                        className={cn(
-                          "flex items-center justify-center size-8 rounded-xl transition-all",
-                          isActive && "bg-white/30 shadow-lg",
-                        )}>
-                        <item.icon className='size-4' />
-                      </div>
+                    <Link href={item.url} onClick={(e) => e.stopPropagation()}>
+                      <item.icon className='size-4' />
                       <span className='group-data-[collapsible=icon]:hidden'>
                         {item.title}
                       </span>
@@ -159,14 +153,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                       "relative transition-all duration-200",
                       isActive && "bg-white/20 text-white",
                     )}>
-                    <Link href={item.url}>
-                      <div
-                        className={cn(
-                          "flex items-center justify-center size-8 rounded-xl transition-all",
-                          isActive && "bg-white/30 shadow-lg",
-                        )}>
-                        <item.icon className='size-4' />
-                      </div>
+                    <Link href={item.url} onClick={(e) => e.stopPropagation()}>
+                      <item.icon className='size-4' />
                       <span className='group-data-[collapsible=icon]:hidden'>
                         {item.title}
                       </span>

@@ -5,19 +5,6 @@ export default function DashboardPage() {
     <main>
       <Layout>
         <div className='flex flex-1 flex-col gap-6 p-4 pt-0'>
-          {/* Header */}
-          <div className='flex items-center justify-between'>
-            <div>
-              <h1 className='text-2xl font-bold'>Dashboard</h1>
-              <p className='text-muted-foreground'>
-                Your productivity at a glance
-              </p>
-            </div>
-            <div className='flex gap-2'>
-              <div className='bg-muted/50 h-9 w-28 rounded-lg animate-pulse' />
-            </div>
-          </div>
-
           {/* Stats Cards Row */}
           <div className='grid gap-4 sm:grid-cols-2 lg:grid-cols-4'>
             {/* Focus Time Today */}
