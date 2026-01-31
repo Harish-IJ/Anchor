@@ -1,23 +1,18 @@
-"use client"
+"use client";
 
-import * as React from "react"
+import * as React from "react";
 import {
-  BookOpen,
-  Bot,
-  Command,
-  Frame,
-  LifeBuoy,
-  Map,
-  PieChart,
-  Send,
-  Settings2,
-  SquareTerminal,
-} from "lucide-react"
+  LayoutDashboard,
+  CalendarDays,
+  Timer,
+  Settings,
+  Anchor,
+  ChevronsLeft,
+  ChevronsRight,
+} from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 
-import { NavMain } from "@/components/nav-main"
-import { NavProjects } from "@/components/nav-projects"
-import { NavSecondary } from "@/components/nav-secondary"
-import { NavUser } from "@/components/nav-user"
 import {
   Sidebar,
   SidebarContent,
@@ -26,160 +21,169 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from "@/components/ui/sidebar"
+  SidebarGroup,
+  SidebarGroupLabel,
+  useSidebar,
+} from "@/components/ui/sidebar";
+import { cn } from "@/lib/utils";
 
-const data = {
-  user: {
-    name: "shadcn",
-    email: "m@example.com",
-    avatar: "/avatars/shadcn.jpg",
+const navItems = [
+  {
+    title: "Dashboard",
+    url: "/",
+    icon: LayoutDashboard,
   },
-  navMain: [
-    {
-      title: "Playground",
-      url: "#",
-      icon: SquareTerminal,
-      isActive: true,
-      items: [
-        {
-          title: "History",
-          url: "#",
-        },
-        {
-          title: "Starred",
-          url: "#",
-        },
-        {
-          title: "Settings",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Models",
-      url: "#",
-      icon: Bot,
-      items: [
-        {
-          title: "Genesis",
-          url: "#",
-        },
-        {
-          title: "Explorer",
-          url: "#",
-        },
-        {
-          title: "Quantum",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Documentation",
-      url: "#",
-      icon: BookOpen,
-      items: [
-        {
-          title: "Introduction",
-          url: "#",
-        },
-        {
-          title: "Get Started",
-          url: "#",
-        },
-        {
-          title: "Tutorials",
-          url: "#",
-        },
-        {
-          title: "Changelog",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Settings",
-      url: "#",
-      icon: Settings2,
-      items: [
-        {
-          title: "General",
-          url: "#",
-        },
-        {
-          title: "Team",
-          url: "#",
-        },
-        {
-          title: "Billing",
-          url: "#",
-        },
-        {
-          title: "Limits",
-          url: "#",
-        },
-      ],
-    },
-  ],
-  navSecondary: [
-    {
-      title: "Support",
-      url: "#",
-      icon: LifeBuoy,
-    },
-    {
-      title: "Feedback",
-      url: "#",
-      icon: Send,
-    },
-  ],
-  projects: [
-    {
-      name: "Design Engineering",
-      url: "#",
-      icon: Frame,
-    },
-    {
-      name: "Sales & Marketing",
-      url: "#",
-      icon: PieChart,
-    },
-    {
-      name: "Travel",
-      url: "#",
-      icon: Map,
-    },
-  ],
+  {
+    title: "Schedule",
+    url: "/schedule",
+    icon: CalendarDays,
+  },
+  {
+    title: "Pomodoro",
+    url: "/pomodoro",
+    icon: Timer,
+  },
+];
+
+const otherItems = [
+  {
+    title: "Settings",
+    url: "/settings",
+    icon: Settings,
+  },
+];
+
+function CollapseButton() {
+  const { toggleSidebar, state } = useSidebar();
+
+  return (
+    <button
+      onClick={toggleSidebar}
+      className='flex items-center justify-center size-8 rounded-lg hover:bg-white/10 transition-colors'>
+      {state === "expanded" ? (
+        <ChevronsLeft className='size-4' />
+      ) : (
+        <ChevronsRight className='size-4' />
+      )}
+    </button>
+  );
 }
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  const pathname = usePathname();
+
   return (
-    <Sidebar variant="inset" {...props}>
-      <SidebarHeader>
+    <Sidebar
+      variant='floating'
+      collapsible='icon'
+      className='glassmorphism-sidebar'
+      {...props}>
+      <SidebarHeader className='pb-0'>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" asChild>
-              <a href="#">
-                <div className="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg">
-                  <Command className="size-4" />
+            <SidebarMenuButton size='lg' asChild className='hover:bg-white/10'>
+              <div className='flex items-center justify-between w-full'>
+                <Link href='/' className='flex items-center gap-2'>
+                  <div className='bg-primary text-primary-foreground flex aspect-square size-8 items-center justify-center rounded-xl'>
+                    <Anchor className='size-4' />
+                  </div>
+                  <div className='grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden'>
+                    <span className='truncate font-semibold'>Anchor</span>
+                    <span className='truncate text-xs opacity-60'>
+                      Productivity
+                    </span>
+                  </div>
+                </Link>
+                <div className='group-data-[collapsible=icon]:hidden'>
+                  <CollapseButton />
                 </div>
-                <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-medium">Acme Inc</span>
-                  <span className="truncate text-xs">Enterprise</span>
-                </div>
-              </a>
+              </div>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
-      <SidebarContent>
-        <NavMain items={data.navMain} />
-        <NavProjects projects={data.projects} />
-        <NavSecondary items={data.navSecondary} className="mt-auto" />
+
+      <SidebarContent className='px-2'>
+        {/* Main Navigation */}
+        <SidebarGroup>
+          <SidebarGroupLabel className='text-xs uppercase tracking-wider opacity-50'>
+            Main
+          </SidebarGroupLabel>
+          <SidebarMenu className='gap-1'>
+            {navItems.map((item) => {
+              const isActive = pathname === item.url;
+              return (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={isActive}
+                    tooltip={item.title}
+                    className={cn(
+                      "relative transition-all duration-200",
+                      isActive && "bg-white/20 text-white",
+                    )}>
+                    <Link href={item.url}>
+                      <div
+                        className={cn(
+                          "flex items-center justify-center size-8 rounded-xl transition-all",
+                          isActive && "bg-white/30 shadow-lg",
+                        )}>
+                        <item.icon className='size-4' />
+                      </div>
+                      <span className='group-data-[collapsible=icon]:hidden'>
+                        {item.title}
+                      </span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              );
+            })}
+          </SidebarMenu>
+        </SidebarGroup>
+
+        {/* Other Navigation */}
+        <SidebarGroup className='mt-auto'>
+          <SidebarGroupLabel className='text-xs uppercase tracking-wider opacity-50'>
+            Other
+          </SidebarGroupLabel>
+          <SidebarMenu className='gap-1'>
+            {otherItems.map((item) => {
+              const isActive = pathname === item.url;
+              return (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={isActive}
+                    tooltip={item.title}
+                    className={cn(
+                      "relative transition-all duration-200",
+                      isActive && "bg-white/20 text-white",
+                    )}>
+                    <Link href={item.url}>
+                      <div
+                        className={cn(
+                          "flex items-center justify-center size-8 rounded-xl transition-all",
+                          isActive && "bg-white/30 shadow-lg",
+                        )}>
+                        <item.icon className='size-4' />
+                      </div>
+                      <span className='group-data-[collapsible=icon]:hidden'>
+                        {item.title}
+                      </span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              );
+            })}
+          </SidebarMenu>
+        </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter>
-        <NavUser user={data.user} />
+
+      <SidebarFooter className='group-data-[collapsible=icon]:hidden'>
+        <div className='flex items-center justify-center'>
+          <CollapseButton />
+        </div>
       </SidebarFooter>
     </Sidebar>
-  )
+  );
 }

@@ -1,3 +1,6 @@
+"use client";
+
+import { usePathname } from "next/navigation";
 import { AppSidebar } from "@/components/app-sidebar";
 import {
   Breadcrumb,
@@ -15,6 +18,13 @@ import {
 } from "@/components/ui/sidebar";
 import { ThemeProvider } from "@/providers/theme-provider";
 import { ModeToggle } from "./theme-toggle";
+
+const pageConfig: Record<string, { title: string; parent?: string }> = {
+  "/": { title: "Dashboard" },
+  "/schedule": { title: "Schedule" },
+  "/pomodoro": { title: "Pomodoro" },
+  "/settings": { title: "Settings" },
+};
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   return (
@@ -35,11 +45,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 }
 
 const Header = () => {
+  const pathname = usePathname();
+  const currentPage = pageConfig[pathname] || { title: "Page" };
+
   return (
     <header className='flex h-16 shrink-0 items-center gap-2'>
       <div className='flex items-center gap-2 px-4'>
         <SidebarTrigger className='-ml-1' />
-        <ModeToggle />
         <Separator
           orientation='vertical'
           className='mr-2 data-[orientation=vertical]:h-4'
@@ -47,16 +59,17 @@ const Header = () => {
         <Breadcrumb>
           <BreadcrumbList>
             <BreadcrumbItem className='hidden md:block'>
-              <BreadcrumbLink href='#'>
-                Building Your Application
-              </BreadcrumbLink>
+              <BreadcrumbLink href='/'>Anchor</BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator className='hidden md:block' />
             <BreadcrumbItem>
-              <BreadcrumbPage>Data Fetching</BreadcrumbPage>
+              <BreadcrumbPage>{currentPage.title}</BreadcrumbPage>
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
+      </div>
+      <div className='ml-auto pr-4'>
+        <ModeToggle />
       </div>
     </header>
   );
